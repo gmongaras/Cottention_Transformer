@@ -45,9 +45,9 @@ class Attention(torch.nn.Module):
         #     @ V)
         
         # Inefficient coattention with mask
-        return ((((Q)/torch.norm(Q, 2, 2)[:, :, None]) \
-            @ ((K)/torch.norm(K, 2, 2)[:, :, None]).transpose(-1, -2))*masks) \
-            @ V
+        # return ((((Q)/torch.norm(Q, 2, 2)[:, :, None]) \
+        #     @ ((K)/torch.norm(K, 2, 2)[:, :, None]).transpose(-1, -2))*masks) \
+        #     @ V
             
         # With ReLU
         # return ((((Q)/torch.norm(Q, 2, 2)[:, :, None]) \
@@ -55,9 +55,9 @@ class Attention(torch.nn.Module):
         #     @ V
             
         # Inefficient coattention with mask and relu
-        # return ((((Q)/torch.norm(Q, 2, 2)[:, :, None]) \
-        #     @ ((K)/torch.norm(K, 2, 2)[:, :, None]).transpose(-1, -2)).relu()*masks) \
-        #     @ V
+        return ((((Q)/torch.norm(Q, 2, 2)[:, :, None]) \
+            @ ((K)/torch.norm(K, 2, 2)[:, :, None]).transpose(-1, -2)).relu()*masks) \
+            @ V
             
         # Garbage "attention"
         # return ((Q)) \

@@ -19,7 +19,7 @@ def main():
     spanish_path = "data/training/europarl-v7.es-en.es"
     
     # Training params
-    batch_size = 16
+    batch_size = 128
     learning_rate = 1e-4
     epochs = 1000
     max_length = 200
@@ -85,7 +85,7 @@ def main():
         }
     
     # Take a subset of 1000
-    dataset = dataset["train"].select(range(10000))
+    dataset = dataset["train"].select(range(1000000))
     
     # Map the dataset
     dataset = dataset.map(map_function, batched=False)
