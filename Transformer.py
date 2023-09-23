@@ -1,6 +1,7 @@
 import torch
 from Transformer_Block import Transformer_Block
 from transformers import AutoTokenizer
+from PositionalEncodings import PositionalEncoding1D, Summer
 
 
 
@@ -14,6 +15,9 @@ class Transformer(torch.nn.Module):
         
         # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        
+        # Positional encodings
+        self.pos_enc = Summer(PositionalEncoding1D(dim))
         
         # Embedding
         self.embedding = torch.nn.Embedding(self.tokenizer.vocab_size, dim)
@@ -30,14 +34,23 @@ class Transformer(torch.nn.Module):
         self.final_layer = torch.nn.Linear(dim, self.tokenizer.vocab_size)
         
     def forward(self, X):
-        masks = X["attention_mask"].to(self.final_layer.weight.device)
+        try:
+            masks = X["attention_mask"]
+        except KeyError:
+            masks = None
+        if type(masks) is not type(None):
+            masks = masks.to(self.final_layer.weight.device)
         X = X["input_ids"].to(self.final_layer.weight.device)
+        
         # masks = Y["attention_mask"].to(self.final_layer.weight.device)
         # Y = Y["input_ids"].to(self.final_layer.weight.device)
         
         # Embedding
         X = self.embedding(X) 
         # Y = self.embedding(Y)
+        
+        # Positional encodings
+        X = self.pos_enc(X)
         
         # Transformer blocks
         for i in range(self.num_layers):

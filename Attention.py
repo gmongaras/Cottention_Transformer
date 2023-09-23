@@ -15,10 +15,10 @@ class Attention(torch.nn.Module):
         self.v_proj = torch.nn.Linear(dim, dim, bias=False)
         
     def forward(self, X, cond=None, masks=None):
-        masks_orig = masks.clone()
-        
         # Create upper traingle masks
         if type(masks) is not type(None):
+            masks_orig = masks.clone()
+            
             lookahead_masks = torch.triu(torch.ones(X.shape[1], X.shape[1]), diagonal=1).bool()
         
             # Create masks from binary of size (N, S) to float with infinities of size (N, S, S) with a -inf on the column vectors
@@ -26,6 +26,11 @@ class Attention(torch.nn.Module):
             
             # Combine masks
             masks = (pad_masks.to(X.device) + lookahead_masks.to(X.device)).bool()
+        else:
+            masks_orig = None
+            
+            masks = torch.triu(torch.ones(X.shape[1], X.shape[1]), diagonal=1).bool().to(X.device)
+            
         
         # Q, K, V, projections
         Q = self.q_proj(cond if type(cond) is not type(None) else X)# * masks.unsqueeze(-1)
@@ -59,7 +64,7 @@ class Attention(torch.nn.Module):
         # Inefficient coattention with mask and relu
         return (((((Q)/torch.norm(Q, 2, 2)[:, :, None]) \
             @ ((K)/torch.norm(K, 2, 2)[:, :, None]).transpose(-1, -2)).relu()*(~masks if type(masks) != type(None) else 1)) \
-            @ V) * (masks_orig[:, :, None] if type(masks) != type(None) else 1)
+            @ V) * (masks_orig[:, :, None] if type(masks_orig) != type(None) else 1)
             
         # Garbage "attention"
         # return ((Q)) \
