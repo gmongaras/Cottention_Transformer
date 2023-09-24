@@ -2,6 +2,7 @@ import torch
 import random
 from Transformer import Transformer
 from datasets import load_dataset, load_from_disk
+import os
 
 
 
@@ -124,9 +125,12 @@ def main():
             "Attention mask or input_ids is not the correct length"
         # attention_mask = text_encoded["attention_mask"]
         
-        # The labels are the input ids, but we want to mask the loss for the context and padding
+        # The labels are the input ids shifted by 1, but we want to mask the loss for the context and padding
         labels = [text_encoded["input_ids"][i] if attention_mask[i] == 1 else -100 for i in range(len(attention_mask))]
         assert len(labels) == len(attention_mask) and len(attention_mask) == len(text_encoded["input_ids"]), "Labels is not the correct length"
+        
+        # Shift the labels by 1
+        labels = labels[1:] + [-100]
         
         return {
             "input_ids": text_encoded["input_ids"],
@@ -140,8 +144,8 @@ def main():
         name="realnewslike",
         cache_dir="datasets",
     )["train"]
-    # dataset = dataset.select(range(250000))
-    dataset = dataset.map(map_function, batched=False, load_from_cache_file=True, cache_file_name="realnewslike")
+    load_from_cache_file = True if os.path.exists("realnewslike") else False
+    dataset = dataset.map(map_function, batched=False, load_from_cache_file=load_from_cache_file, cache_file_name="realnewslike")
     
     
     
