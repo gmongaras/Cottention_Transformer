@@ -1,5 +1,9 @@
 data/
 datasets/
+*.arrow
+realnewslike
+checkpoints/
+wandb/
 
 
 
