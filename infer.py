@@ -10,8 +10,8 @@ from datasets import load_dataset, load_from_disk
 
 def main():
     # Model params
-    dim = 128
-    num_layers = 12
+    dim = 512
+    num_layers = 15
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = torch.device("cpu")
     
@@ -42,7 +42,7 @@ def main():
     # Create the model
     model = Transformer(num_layers, dim).to(device)
     # Load in checkpoint for model
-    model.load_state_dict(torch.load("./checkpoint.pt"), strict=False)
+    model.load_state_dict(torch.load("./checkpoints/checkpoint-0-2000.pt"), strict=False)
     
     # '[CLS] After the martyrdom of St. Boniface, Vergilius was made Bishop of Salzburg ( 766 or 767 ) and laboured successfully for the upbuilding of his diocese as well as for the spread of the Faith in neighbouring heathen countries, especially in Carinthia. He died at Salzburg, 27 November, 789. In 1233 he was canonized by Gregory IX. His doctrine that the earth is a sphere was derived from the teaching of ancient geographers, and his belief in the existence of the antipodes was probably influenced by the accounts which the ancient Irish voyagers gave of their journeys. This, at least, is the opinion of Rettberg ( " Kirchengesch. Deutschlands ", II, 236 ). [SEP] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]'
     
