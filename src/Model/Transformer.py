@@ -55,7 +55,8 @@ class Transformer(torch.nn.Module):
         X = X["input_ids"]
         
         # Transfer to device
-        masks = masks.to(self.final_layer.weight.device)
+        if type(masks) is not type(None):
+            masks = masks.to(self.final_layer.weight.device)
         X = X.to(self.final_layer.weight.device)
         
         # masks = Y["attention_mask"].to(self.final_layer.weight.device)

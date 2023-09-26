@@ -1,6 +1,6 @@
 import torch
 import random
-from Transformer import Transformer
+from .Model.Transformer import Transformer
 from datasets import load_dataset, load_from_disk
 
 
@@ -12,8 +12,9 @@ def main():
     # Model params
     dim = 512
     num_layers = 15
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # device = torch.device("cpu")
+    scale_factor = 2
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     
     # Training params
     batch_size = 128
@@ -40,16 +41,16 @@ def main():
     
     
     # Create the model
-    model = Transformer(num_layers, dim).to(device)
+    model = Transformer(num_layers, dim, scale_factor).to(device)
     # Load in checkpoint for model
-    model.load_state_dict(torch.load("./checkpoints/checkpoint-0-2000.pt"), strict=False)
+    model.load_state_dict(torch.load("./checkpoints/step_26500/model.pth"), strict=False)
     
     # '[CLS] After the martyrdom of St. Boniface, Vergilius was made Bishop of Salzburg ( 766 or 767 ) and laboured successfully for the upbuilding of his diocese as well as for the spread of the Faith in neighbouring heathen countries, especially in Carinthia. He died at Salzburg, 27 November, 789. In 1233 he was canonized by Gregory IX. His doctrine that the earth is a sphere was derived from the teaching of ancient geographers, and his belief in the existence of the antipodes was probably influenced by the accounts which the ancient Irish voyagers gave of their journeys. This, at least, is the opinion of Rettberg ( " Kirchengesch. Deutschlands ", II, 236 ). [SEP] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]'
     
     # Generate a sentence
     # tokenized = model.tokenizer("I", return_tensors="pt").to(device)
     tokenized = {"input_ids": torch.tensor([[101]], dtype=torch.long).to(device)}
-    for i in range(0, 128):
+    for i in range(0, 200):
         # Tokenize the current sentence
         # tokenized = model.tokenizer(cur, return_tensors="pt").to(device)
         
@@ -65,12 +66,12 @@ def main():
         output_ = torch.multinomial(output, 1)
         
         # Get the next word
-        next_word = model.tokenizer.decode(output_)
+        next_word = model.tokenizer[0].decode(output_)
         
         # Add next word to the input ids
         tokenized["input_ids"] = torch.cat((tokenized["input_ids"], output_.unsqueeze(-1)), dim=-1)
     
-    print(model.tokenizer.decode(tokenized["input_ids"][0]))
+    print(model.tokenizer[0].decode(tokenized["input_ids"][0]))
     
     
     
