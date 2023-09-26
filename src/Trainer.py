@@ -89,6 +89,7 @@ class Trainer():
             adam_beta1=0.9,
             adam_beta2=0.999,
             warmup_steps=1000,
+            wandb_name=None,
         ):
         self.model = model
         self.dev = dev
@@ -105,6 +106,7 @@ class Trainer():
         self.adam_beta1 = adam_beta1
         self.adam_beta2 = adam_beta2
         self.warmup_steps = warmup_steps
+        self.wandb_name = wandb_name
         
         
         
@@ -156,6 +158,7 @@ class Trainer():
         if is_main_process():
             wandb.init(
                 project="Cottention",
+                name=self.wandb_name,
             )
             wandb.watch(self.model, log_freq=self.save_every_steps)
         
@@ -249,24 +252,25 @@ class Trainer():
                         if self.clipping_value is not None:
                             torch.nn.utils.clip_grad_norm_(model_ref.parameters(), self.clipping_value)
                         
+                        
+                        # Step scheduler
+                        if self.use_scheduler:
+                            with warmup_scheduler.dampening():
+                                scheduler.step() # Normal
+                                # scheduler.step(loss) # Plateau
+                                # scheduler.step(epoch + batch_num / len(self.dataloader)) # Cosine Annealing
                         # Step optimizer
                         if self.use_amp:
                             grad_scaler.step(optimizer)
                         else:
                             optimizer.step()
-                        # Step scheduler
-                        if self.use_scheduler:
-                            with warmup_scheduler.dampening():
-                                # scheduler.step() # Normal
-                                # scheduler.step(loss) # Plateau
-                                scheduler.step(epoch + batch_num / len(self.dataloader)) # Cosine Annealing
                         # Update scaler for next iteration
                         if self.use_amp:
                             grad_scaler.update()
                         optimizer.zero_grad()
                     
                     if num_steps-step_ckpt < self.save_every_steps and is_main_process():
-                        print(f"Step: {num_steps} | Loss: {loss.item()}")
+                        print(f"Step: {num_steps} | Loss: {loss.item()} | Perplexity: {loss.exp().item()}")
                     
                     batch_loss += loss.item()
                     num_steps += 1
@@ -282,11 +286,12 @@ class Trainer():
                     with torch.no_grad():
                         if is_main_process():
                             wandb.log({"loss": batch_loss/self.save_every_steps})
+                            wandb.log({"perplexity": torch.tensor(batch_loss/self.save_every_steps).exp()})
                             wandb.log({"lr": optimizer.param_groups[0]['lr']})
                             wandb.log({"step": num_steps})
                             wandb.log({"epoch": epoch})
                         
-                        print(f"Step: {num_steps} | Loss: {batch_loss/self.save_every_steps}")
+                        print(f"Step: {num_steps} | Loss: {batch_loss/self.save_every_steps} | Perplexity: {torch.tensor(batch_loss/self.save_every_steps).exp()}")
                         batch_loss *= 0
 
                         # Save model parameters to json
@@ -324,4 +329,4 @@ class Trainer():
                 del batch, output, loss
                 
             if is_main_process():
-                print(f"Epoch: {epoch} | Batch Loss: {batch_loss/len(self.dataloader)}")
+                print(f"Epoch: {epoch} | Batch Loss: {batch_loss/len(self.dataloader)} | Perplexity: {torch.tensor(batch_loss/len(self.dataloader)).exp()}")

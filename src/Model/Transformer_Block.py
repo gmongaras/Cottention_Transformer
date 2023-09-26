@@ -13,7 +13,7 @@ except ModuleNotFoundError:
             
 # Transformer
 class Transformer_Block(torch.nn.Module):
-    def __init__(self, dim, scale_factor=4, decoder=False):
+    def __init__(self, dim, scale_factor=4, decoder=False, distance_type="cosine"):
         super().__init__()
         
         self.dim = dim
@@ -21,7 +21,7 @@ class Transformer_Block(torch.nn.Module):
         
         self.LN1 = torch.nn.LayerNorm(dim)
         self.LN2 = torch.nn.LayerNorm(dim)
-        self.attn = Attention(dim)
+        self.attn = Attention(dim, distance_type=distance_type)
         self.ff = torch.nn.Sequential(
             torch.nn.Linear(dim, int(dim*scale_factor)),
             torch.nn.GELU(),

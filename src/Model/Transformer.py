@@ -13,11 +13,12 @@ except ModuleNotFoundError:
 
 
 class Transformer(torch.nn.Module):
-    def __init__(self, num_layers, dim, scale_factor):
+    def __init__(self, num_layers, dim, scale_factor, distance_type):
         super().__init__()
         
         self.num_layers = num_layers
         self.dim = dim
+        self.distance_type = distance_type
         
         # Tokenizer
         self.tokenizer = [AutoTokenizer.from_pretrained("bert-base-cased")]
@@ -30,11 +31,15 @@ class Transformer(torch.nn.Module):
         
         # Transformer blocks
         self.encoder_blocks = torch.nn.ModuleList([
-            Transformer_Block(dim, scale_factor) for _ in range(num_layers)
+            Transformer_Block(dim, scale_factor, distance_type) for _ in range(num_layers)
         ])
         
         # Final layer
-        self.final_layer = torch.nn.Linear(dim, self.tokenizer[0].vocab_size)
+        self.final_layer = torch.nn.Sequential(
+            torch.nn.Linear(dim, dim*2),
+            torch.nn.GELU(),
+            torch.nn.Linear(dim*2, self.tokenizer[0].vocab_size)
+        )
         
         
         
@@ -56,8 +61,8 @@ class Transformer(torch.nn.Module):
         
         # Transfer to device
         if type(masks) is not type(None):
-            masks = masks.to(self.final_layer.weight.device)
-        X = X.to(self.final_layer.weight.device)
+            masks = masks.to(self.final_layer[0].weight.device)
+        X = X.to(self.final_layer[0].weight.device)
         
         # masks = Y["attention_mask"].to(self.final_layer.weight.device)
         # Y = Y["input_ids"].to(self.final_layer.weight.device)

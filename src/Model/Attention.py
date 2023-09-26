@@ -5,10 +5,11 @@ import torch
 
 # Attention implementation
 class Attention(torch.nn.Module):
-    def __init__(self, dim, num_heads=8):
+    def __init__(self, dim, num_heads=8, distance_type="cosine"):
         super().__init__()
         self.dim = dim
         self.num_heads = num_heads
+        self.distance_type = distance_type
         
         # query, key, value projections
         self.q_proj = torch.nn.Linear(dim, dim, bias=False)
@@ -73,14 +74,17 @@ class Attention(torch.nn.Module):
         #     @ V
             
         # Inefficient coattention with mask and relu
-        out =  (((((Q)/torch.norm(Q, 2, -1).unsqueeze(-1)) \
-            @ ((K)/torch.norm(K, 2, -1).unsqueeze(-1)).transpose(-1, -2)).relu()*(~masks if type(masks) != type(None) else 1)) \
-            @ V) * (masks_orig[:, None, :, None] if type(masks_orig) != type(None) else 1)
-            
-        # Garbage "attention"
-        # return ((Q)) \
-        #     @ (((K)).transpose(-1, -2) \
-        #     @ V)
+        if self.distance_type == "cosine":
+            out =  (((((Q)/torch.norm(Q, 2, -1).unsqueeze(-1)) \
+                @ ((K)/torch.norm(K, 2, -1).unsqueeze(-1)).transpose(-1, -2)).relu()*(~masks if type(masks) != type(None) else 1)) \
+                @ V) * (masks_orig[:, None, :, None] if type(masks_orig) != type(None) else 1)
+        # normalized L2 attention
+        elif self.distance_type == "l2":
+            raise NotImplementedError("L2 distance not implemented")
+            out =  ((Q@K.T)*(~masks if type(masks) != type(None) else 1) \
+                @ V) * (masks_orig[:, None, :, None] if type(masks_orig) != type(None) else 1)
+        else:
+            raise ValueError("distance_type must be either 'cosine' or 'l2'")
         
         
         

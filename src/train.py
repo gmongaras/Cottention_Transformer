@@ -26,6 +26,8 @@ def main():
     dim = 512
     num_layers = 15
     scale_factor = 2
+    # distance_type = "cosine"
+    distance_type = "l2"
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = "gpu"
     
@@ -48,6 +50,7 @@ def main():
     adam_beta1 = 0.9
     adam_beta2 = 0.95
     warmup_steps = 1000
+    wandb_name = None
     
     
     
@@ -68,7 +71,7 @@ def main():
     
     
     # Create the model
-    model = Transformer(num_layers, dim, scale_factor)
+    model = Transformer(num_layers, dim, scale_factor, distance_type)
     
     
     
@@ -197,7 +200,8 @@ def main():
         weight_decay=weight_decay,
         adam_beta1=adam_beta1,
         adam_beta2=adam_beta2,
-        warmup_steps=warmup_steps
+        warmup_steps=warmup_steps,
+        wandb_name=wandb_name
     )
     
     # Train model
