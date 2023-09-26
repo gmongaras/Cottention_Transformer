@@ -84,7 +84,11 @@ class Trainer():
             optimizer_checkpoint=None, 
             scheduler_checkpoint=None, 
             use_amp=True,
-            clipping_value=None
+            clipping_value=None,
+            weight_decay=0.1,
+            adam_beta1=0.9,
+            adam_beta2=0.999,
+            warmup_steps=1000,
         ):
         self.model = model
         self.dev = dev
@@ -97,6 +101,10 @@ class Trainer():
         self.scheduler_checkpoint = scheduler_checkpoint
         self.use_amp = use_amp
         self.clipping_value = clipping_value
+        self.weight_decay = weight_decay
+        self.adam_beta1 = adam_beta1
+        self.adam_beta2 = adam_beta2
+        self.warmup_steps = warmup_steps
         
         
         
@@ -145,10 +153,11 @@ class Trainer():
         self.model.train()
         
         # Initialize wandb run
-        wandb.init(
-            project="Cottention",
-        )
-        wandb.watch(self.model, log_freq=self.save_every_steps)
+        if is_main_process():
+            wandb.init(
+                project="Cottention",
+            )
+            wandb.watch(self.model, log_freq=self.save_every_steps)
         
         if epoch_ckpt is None:
             epoch_ckpt = 0
@@ -168,7 +177,12 @@ class Trainer():
             world_size = int(os.environ['WORLD_SIZE'])
         
         # Optimzer
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, eps=1e-7 if self.use_amp else 1e-8) if self.optimizer_checkpoint is None else self.optimizer_checkpoint
+        optimizer = torch.optim.AdamW(self.model.parameters(), 
+                    lr=self.lr, 
+                    weight_decay=self.weight_decay, 
+                    betas=(self.adam_beta1, self.adam_beta2),
+                    eps=1e-7 if self.use_amp else 1e-8)\
+                        if self.optimizer_checkpoint is None else self.optimizer_checkpoint
         
         # Loss function
         loss_fn = torch.nn.CrossEntropyLoss()
@@ -182,7 +196,7 @@ class Trainer():
             # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=10000*len(self.dataloader), eta_min=1e-6) if self.scheduler_checkpoint is None else self.scheduler_checkpoint
             # https://github.com/Tony-Y/pytorch_warmup
             # warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
-            warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=1000)
+            warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=self.warmup_steps)
             
         if self.use_amp:
             grad_scaler = torch.cuda.amp.GradScaler()
@@ -252,7 +266,7 @@ class Trainer():
                         optimizer.zero_grad()
                     
                     if num_steps-step_ckpt < self.save_every_steps and is_main_process():
-                        print(f"Step: {num_steps} | Loss: {loss.item()/world_size}")
+                        print(f"Step: {num_steps} | Loss: {loss.item()}")
                     
                     batch_loss += loss.item()
                     num_steps += 1
@@ -266,12 +280,13 @@ class Trainer():
                 # Save audio samples
                 if num_steps % self.save_every_steps == 0 and is_main_process():
                     with torch.no_grad():
-                        wandb.log({"loss": batch_loss/world_size/self.save_every_steps})
-                        wandb.log({"lr": optimizer.param_groups[0]['lr']})
-                        wandb.log({"step": num_steps})
-                        wandb.log({"epoch": epoch})
+                        if is_main_process():
+                            wandb.log({"loss": batch_loss/self.save_every_steps})
+                            wandb.log({"lr": optimizer.param_groups[0]['lr']})
+                            wandb.log({"step": num_steps})
+                            wandb.log({"epoch": epoch})
                         
-                        print(f"Step: {num_steps} | Loss: {batch_loss/world_size/self.save_every_steps}")
+                        print(f"Step: {num_steps} | Loss: {batch_loss/self.save_every_steps}")
                         batch_loss *= 0
 
                         # Save model parameters to json

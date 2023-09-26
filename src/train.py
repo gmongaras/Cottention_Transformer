@@ -44,6 +44,10 @@ def main():
     scheduler_checkpoint = None
     use_amp = True
     clipping_value = 1.0
+    weight_decay = 0.1
+    adam_beta1 = 0.9
+    adam_beta2 = 0.95
+    warmup_steps = 1000
     
     
     
@@ -190,6 +194,10 @@ def main():
         scheduler_checkpoint=scheduler_checkpoint,
         use_amp=use_amp,
         clipping_value=clipping_value,
+        weight_decay=weight_decay,
+        adam_beta1=adam_beta1,
+        adam_beta2=adam_beta2,
+        warmup_steps=warmup_steps
     )
     
     # Train model
