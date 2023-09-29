@@ -11,9 +11,11 @@ try:
     sys.path.append('src/Model')
     
     from Trainer import Trainer
+    from Trainer_No_Mask import Trainer_No_Mask
     from Transformer import Transformer
 except ModuleNotFoundError:
     from src.Trainer import Trainer
+    from src.Trainer_No_Mask import Trainer_No_Mask
     from src.Model.Transformer import Transformer
 
 
@@ -26,13 +28,13 @@ def main():
     dim = 512
     num_layers = 15
     scale_factor = 2
-    # distance_type = "cosine"
-    distance_type = "l2"
+    distance_type = "cosine"
+    # distance_type = "l2"
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = "gpu"
     
     # Training params
-    batch_size = 128
+    batch_size = 256
     learning_rate = 1e-4
     epochs = 1000
     max_length = 200
@@ -181,7 +183,7 @@ def main():
     
     
     # Model trainer
-    trainer = Trainer(
+    trainer = Trainer_No_Mask(
         model=model,
         dataset=dataset,
         dev=device,

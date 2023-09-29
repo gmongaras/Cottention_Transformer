@@ -13,14 +13,8 @@ def main():
     dim = 512
     num_layers = 15
     scale_factor = 2
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
-    
-    # Training params
-    batch_size = 128
-    learning_rate = 1e-4
-    epochs = 1000
-    max_length = 200
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cpu")
     
     
     

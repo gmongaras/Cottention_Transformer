@@ -21,7 +21,7 @@ class Transformer(torch.nn.Module):
         self.distance_type = distance_type
         
         # Tokenizer
-        self.tokenizer = [AutoTokenizer.from_pretrained("bert-base-cased")]
+        self.tokenizer = [AutoTokenizer.from_pretrained("bert-base-cased", use_fast=False)]
         
         # Positional encodings
         self.pos_enc = Summer(PositionalEncoding1D(dim))
@@ -31,14 +31,14 @@ class Transformer(torch.nn.Module):
         
         # Transformer blocks
         self.encoder_blocks = torch.nn.ModuleList([
-            Transformer_Block(dim, scale_factor, distance_type) for _ in range(num_layers)
+            Transformer_Block(dim, scale_factor, decoder=False, distance_type=distance_type) for _ in range(num_layers)
         ])
         
         # Final layer
         self.final_layer = torch.nn.Sequential(
-            torch.nn.Linear(dim, dim*2),
+            torch.nn.Linear(dim, dim*scale_factor),
             torch.nn.GELU(),
-            torch.nn.Linear(dim*2, self.tokenizer[0].vocab_size)
+            torch.nn.Linear(dim*scale_factor, self.tokenizer[0].vocab_size)
         )
         
         
@@ -50,7 +50,7 @@ class Transformer(torch.nn.Module):
             "scale_factor": scale_factor
         }
         
-    def forward(self, X):
+    def forward(self, X, return_last=False):
         try:
             masks = X["attention_mask"]
         except KeyError:
@@ -81,6 +81,9 @@ class Transformer(torch.nn.Module):
         #     Y = self.decoder_blocks[i](Y, cond=X, masks=masks)
         
         # Final layer
-        X = self.final_layer(X)
+        if return_last:
+            X = self.final_layer(X[:, -1])
+        else:
+            X = self.final_layer(X)
         
         return X
