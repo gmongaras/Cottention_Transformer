@@ -8,7 +8,7 @@ import torch
 
 # Attention implementation
 class Attention(torch.nn.Module):
-    def __init__(self, dim, num_heads=8, distance_type="cosine"):
+    def __init__(self, dim, num_heads=8, distance_type="cosine", activation_type="relu"):
         super().__init__()
         self.dim = dim
         self.num_heads = num_heads
@@ -21,6 +21,14 @@ class Attention(torch.nn.Module):
         
         # Output projection
         self.out_proj = torch.nn.Linear(dim, dim, bias=False)
+        
+        # Activation function
+        if activation_type == "none":
+            self.act = lambda x: x
+        elif activation_type == "relu":
+            self.act = torch.nn.ReLU()
+        else:
+            raise ValueError("activation_type must be either 'none' or 'relu'")
         
         
         
@@ -89,8 +97,8 @@ class Attention(torch.nn.Module):
             
         # Inefficient coattention with mask and relu
         if self.distance_type == "cosine":
-            out =  (((((Q)/torch.norm(Q, 2, -1).unsqueeze(-1)) \
-                @ ((K)/torch.norm(K, 2, -1).unsqueeze(-1)).transpose(-1, -2)).relu()*(~masks if type(masks) != type(None) else 1)) \
+            out =  self.act((((((Q)/torch.norm(Q, 2, -1).unsqueeze(-1)) \
+                @ ((K)/torch.norm(K, 2, -1).unsqueeze(-1)).transpose(-1, -2)))*(~masks if type(masks) != type(None) else 1)) \
                 @ V) * (masks_orig[:, None, :, None] if type(masks_orig) != type(None) else 1)
         # normalized L2 attention
         elif self.distance_type == "l2":

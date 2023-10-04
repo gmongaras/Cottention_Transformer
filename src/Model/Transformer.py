@@ -13,12 +13,13 @@ except ModuleNotFoundError:
 
 
 class Transformer(torch.nn.Module):
-    def __init__(self, num_layers, dim, scale_factor, distance_type):
+    def __init__(self, num_layers, dim, scale_factor, distance_type, activation_type):
         super().__init__()
         
         self.num_layers = num_layers
         self.dim = dim
         self.distance_type = distance_type
+        self.activation_type = activation_type
         
         # Tokenizer
         self.tokenizer = [AutoTokenizer.from_pretrained("bert-base-cased", use_fast=False)]
@@ -31,7 +32,7 @@ class Transformer(torch.nn.Module):
         
         # Transformer blocks
         self.encoder_blocks = torch.nn.ModuleList([
-            Transformer_Block(dim, scale_factor, decoder=False, distance_type=distance_type) for _ in range(num_layers)
+            Transformer_Block(dim, scale_factor, decoder=False, distance_type=distance_type, activation_type=activation_type) for _ in range(num_layers)
         ])
         
         # Final layer

@@ -230,7 +230,7 @@ class Trainer():
                     
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
                     # Send through model
-                    output = self.model(batch)
+                    output = self.model_ref(batch)
                     
                     # Calculate loss
                     loss = loss_fn(output.transpose(-1, -2), batch["labels"].to(output.device))
