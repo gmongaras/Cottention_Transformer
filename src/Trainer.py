@@ -90,6 +90,7 @@ class Trainer():
             adam_beta2=0.999,
             warmup_steps=1000,
             wandb_name=None,
+            test_per=0.1
         ):
         self.model = model
         self.dev = dev
@@ -124,12 +125,17 @@ class Trainer():
             self.model = DDP(self.model.cuda(), device_ids=[local_rank], find_unused_parameters=False)
         else:
             self.model = self.model.cpu()
+            
+            
+            
+        # Train/test split
+        dataset = dataset.train_test_split(test_size=test_per, shuffle=True)
         
         
         
         # Distributed dataloader
         if self.dev == "cpu":
-            self.dataloader = DataLoader(dataset, 
+            self.train_dataloader = DataLoader(dataset["train"],
                 batch_size=batch_size,
                 shuffle=True,  
                 # collate_fn=lambda x: x,
@@ -138,15 +144,31 @@ class Trainer():
                 prefetch_factor=prefetch_factor if num_workers > 0 else None,
                 persistent_workers=True if num_workers > 0 else False,
             )
+            
+            self.test_dataloader = DataLoader(dataset["test"],
+                batch_size=batch_size,
+                shuffle=True,  
+                num_workers=num_workers if num_workers > 0 else 0,
+                prefetch_factor=prefetch_factor if num_workers > 0 else None,
+                persistent_workers=True if num_workers > 0 else False,
+            )
         else:
-            self.dataloader = DataLoader(dataset, 
+            self.train_dataloader = DataLoader(dataset["train"], 
                 batch_size=batch_size, 
                 # collate_fn=lambda x: x,
                 # collate_fn=collate_fn,
                 num_workers=num_workers if num_workers > 0 else 0,
                 prefetch_factor=prefetch_factor if num_workers > 0 else None,
                 persistent_workers=True if num_workers > 0 else False,
-                sampler=DistributedSampler(dataset, shuffle=True)
+                sampler=DistributedSampler(dataset["train"], shuffle=True)
+            )
+            
+            self.test_dataloader = DataLoader(dataset["test"],
+                batch_size=batch_size,
+                shuffle=True,  
+                num_workers=num_workers if num_workers > 0 else 0,
+                prefetch_factor=prefetch_factor if num_workers > 0 else None,
+                persistent_workers=True if num_workers > 0 else False,
             )
             
             
@@ -203,19 +225,19 @@ class Trainer():
             
         if self.use_amp:
             grad_scaler = torch.cuda.amp.GradScaler()
+            
+        # Total batch loss
+        batch_loss = 0
         
         num_steps = step_ckpt
         for epoch in range(epoch_ckpt, 10000):
             # Set the epoch number for the dataloader to seed the
             # randomization of the sampler
             if self.dev != "cpu":
-                self.dataloader.sampler.set_epoch(epoch)
-            
-            # Total batch loss
-            batch_loss = 0
+                self.train_dataloader.sampler.set_epoch(epoch)
             
             # Iterate over the batches of data
-            for batch_num, batch in enumerate(tqdm(self.dataloader)):
+            for batch_num, batch in enumerate(tqdm(self.train_dataloader)):
                 with torch.no_grad():
                     # Model reference is different depending on the device
                     if self.dev == "cpu":
@@ -230,7 +252,7 @@ class Trainer():
                     
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
                     # Send through model
-                    output = self.model_ref(batch)
+                    output = model_ref(batch)
                     
                     # Calculate loss
                     loss = loss_fn(output.transpose(-1, -2), batch["labels"].to(output.device))
@@ -256,9 +278,9 @@ class Trainer():
                         # Step scheduler
                         if self.use_scheduler:
                             with warmup_scheduler.dampening():
-                                scheduler.step() # Normal
+                                # scheduler.step() # Normal
                                 # scheduler.step(loss) # Plateau
-                                # scheduler.step(epoch + batch_num / len(self.dataloader)) # Cosine Annealing
+                                scheduler.step(epoch + batch_num / len(self.train_dataloader.dataset)) # Cosine Annealing
                         # Step optimizer
                         if self.use_amp:
                             grad_scaler.step(optimizer)
@@ -272,8 +294,11 @@ class Trainer():
                     if num_steps-step_ckpt < self.save_every_steps and is_main_process():
                         print(f"Step: {num_steps} | Loss: {loss.item()} | Perplexity: {loss.exp().item()}")
                     
-                    batch_loss += loss.item()
+                    batch_loss += loss.item() * self.accumulation_steps
                     num_steps += 1
+                    
+                    # Free memory
+                    del batch, output, loss
                 
                 
                 
@@ -281,17 +306,46 @@ class Trainer():
                 
                 
                 
-                # Save audio samples
+                # Save samples, do inference
                 if num_steps % self.save_every_steps == 0 and is_main_process():
                     with torch.no_grad():
+                        # Set model to eval mode
+                        model_ref.eval()
+                        
+                        # Iterate over all test batches
+                        cumulative_loss = 0
+                        with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
+                            for test_batch_num, test_batch in enumerate(self.test_dataloader):
+                                # Convert batch to torch tensors
+                                test_batch["input_ids"] = torch.stack(test_batch["input_ids"]).T
+                                test_batch["labels"] = torch.stack(test_batch["labels"]).T
+                                test_batch["attention_mask"] = torch.stack(test_batch["attention_mask"]).T
+                                
+                                # Send through model
+                                output = model_ref(test_batch)
+                                
+                                # Calculate loss
+                                loss = loss_fn(output.transpose(-1, -2), test_batch["labels"].to(output.device))
+                                
+                                # Add up loss
+                                cumulative_loss += loss.item() * test_batch["input_ids"].shape[0]
+                                
+                                # Free memory
+                                del test_batch, output, loss
+                        
+                        # Log wandb
                         if is_main_process():
-                            wandb.log({"loss": batch_loss/self.save_every_steps})
-                            wandb.log({"perplexity": torch.tensor(batch_loss/self.save_every_steps).exp()})
+                            wandb.log({"train loss": batch_loss/self.save_every_steps})
+                            wandb.log({"test loss": cumulative_loss/len(self.test_dataloader.dataset)})
+                            wandb.log({"train perplexity": torch.tensor(batch_loss/self.save_every_steps).exp()})
+                            wandb.log({"test perplexity": torch.tensor(cumulative_loss/len(self.test_dataloader.dataset)).exp()})
                             wandb.log({"lr": optimizer.param_groups[0]['lr']})
                             wandb.log({"step": num_steps})
                             wandb.log({"epoch": epoch})
                         
-                        print(f"Step: {num_steps} | Loss: {batch_loss/self.save_every_steps} | Perplexity: {torch.tensor(batch_loss/self.save_every_steps).exp()}")
+                        print(f"Step: {num_steps}")
+                        print(f"Train: Loss: {batch_loss/self.save_every_steps} | Perplexity: {torch.tensor(batch_loss/self.save_every_steps).exp()}")
+                        print(f"Test: Loss: {cumulative_loss/len(self.test_dataloader.dataset)} | Perplexity: {torch.tensor(cumulative_loss/len(self.test_dataloader.dataset)).exp()}")
                         batch_loss *= 0
 
                         # Save model parameters to json
@@ -317,16 +371,15 @@ class Trainer():
                             if not os.path.exists(f"{self.checkpoints_dir}/step_{num_steps}"):
                                 os.makedirs(f"{self.checkpoints_dir}/step_{num_steps}")
                             torch.save(scheduler.state_dict(), f"{self.checkpoints_dir}/step_{num_steps}/scheduler.pth")
+                            
+                            
+                        # Set model back to train mode
+                        model_ref.train()
                 
                 
                 
                 
                 
                 
-                
-                
-                # Free memory
-                del batch, output, loss
-                
-            if is_main_process():
-                print(f"Epoch: {epoch} | Batch Loss: {batch_loss/len(self.dataloader)} | Perplexity: {torch.tensor(batch_loss/len(self.dataloader)).exp()}")
+            # if is_main_process():
+            #     print(f"Epoch: {epoch} | Batch Loss: {batch_loss/len(self.train_dataloader)} | Perplexity: {torch.tensor(batch_loss/len(self.train_dataloader)).exp()}")

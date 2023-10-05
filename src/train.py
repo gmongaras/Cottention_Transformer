@@ -33,13 +33,13 @@ def main():
     device = "gpu"
     
     # Training params
-    batch_size = 16
+    batch_size = 16#256
     learning_rate = 1e-4
     epochs = 1000
     max_length = 200
     num_workers = 10
     prefetch_factor = 16
-    save_every_steps = 500
+    save_every_steps = 10
     use_scheduler = True
     checkpoints_dir = "checkpoints"
     optimizer_checkpoint = None
@@ -52,6 +52,7 @@ def main():
     adam_beta2 = 0.95
     warmup_steps = 1000
     wandb_name = None
+    test_per = 0.1
     
     
     
@@ -207,7 +208,8 @@ def main():
         adam_beta1=adam_beta1,
         adam_beta2=adam_beta2,
         warmup_steps=warmup_steps,
-        wandb_name=wandb_name
+        wandb_name=wandb_name,
+        test_per=test_per,
     )
     
     # Train model

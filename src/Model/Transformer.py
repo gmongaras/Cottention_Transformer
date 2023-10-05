@@ -25,7 +25,7 @@ class Transformer(torch.nn.Module):
         self.tokenizer = [AutoTokenizer.from_pretrained("bert-base-cased", use_fast=False)]
         
         # Positional encodings
-        self.pos_enc = Summer(PositionalEncoding1D(dim))
+        self.pos_enc = [Summer(PositionalEncoding1D(dim))]
         
         # Embedding
         self.embedding = torch.nn.Embedding(self.tokenizer[0].vocab_size, dim)
@@ -73,7 +73,7 @@ class Transformer(torch.nn.Module):
         # Y = self.embedding(Y)
         
         # Positional encodings
-        X = self.pos_enc(X)
+        X = self.pos_enc[0](X)
         
         # Transformer blocks
         for i in range(self.num_layers):

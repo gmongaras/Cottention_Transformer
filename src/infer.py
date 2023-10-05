@@ -13,6 +13,8 @@ def main():
     dim = 512
     num_layers = 15
     scale_factor = 2
+    distance_type = "cosine"
+    activation_type = "relu"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = torch.device("cpu")
     
@@ -35,7 +37,7 @@ def main():
     
     
     # Create the model
-    model = Transformer(num_layers, dim, scale_factor).to(device)
+    model = Transformer(num_layers, dim, scale_factor, distance_type, activation_type).to(device)
     # Load in checkpoint for model
     model.load_state_dict(torch.load("./checkpoints/step_26500/model.pth"), strict=False)
     
