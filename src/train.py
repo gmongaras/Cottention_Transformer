@@ -33,13 +33,13 @@ def main():
     device = "gpu"
     
     # Training params
-    batch_size = 16#256
+    batch_size = 256
     learning_rate = 1e-4
     epochs = 1000
     max_length = 200
     num_workers = 10
     prefetch_factor = 16
-    save_every_steps = 10
+    save_every_steps = 1000
     use_scheduler = True
     checkpoints_dir = "checkpoints"
     optimizer_checkpoint = None
@@ -85,66 +85,12 @@ def main():
     
     
     
-    # Load in dataset
-    from datasets import load_dataset, load_from_disk
-    dataset = load_dataset(
-        "gmongaras/reddit_political_2019_Feb", 
-        cache_dir="./datasets",
-    )
-    
-    # Load in the dataset and map using the tokenizer
-    def map_function(example):
-        text = example["text"]
-        
-        # Encode the question and output
-        text_encoded = model.tokenizer[0](text, max_length=max_length-1, truncation=True, padding="max_length")
-        
-        # Add on a pad token to the end of the input_ids
-        text_encoded["input_ids"] = text_encoded["input_ids"] + [model.tokenizer[0].pad_token_id]
-        
-        # Attention mask is the length of the input_ids without the padding + 1
-        # because we want the model to stop itself
-        attention_mask = [1 for i in range(0, sum(text_encoded["attention_mask"]) + 1)] + [0 for i in range(sum(text_encoded["attention_mask"])+1, max_length)]
-        assert len(attention_mask) == max_length and len(text_encoded["input_ids"]) == max_length, \
-            "Attention mask or input_ids is not the correct length"
-        # attention_mask = text_encoded["attention_mask"]
-        
-        # The labels are the input ids, but we want to mask the loss for the context and padding
-        labels = [text_encoded["input_ids"][i] if attention_mask[i] == 1 else -100 for i in range(len(attention_mask))]
-        assert len(labels) == len(attention_mask) and len(attention_mask) == len(text_encoded["input_ids"]), "Labels is not the correct length"
-        
-        return {
-            "input_ids": text_encoded["input_ids"],
-            "labels": labels,
-            "attention_mask": attention_mask
-        }
-    
-    # Take a subset of 1000
-    dataset = dataset["train"].select(range(1000))
-    
-    # Map the dataset
-    dataset = dataset.map(map_function, batched=False)
-    
-    # Remove text from dataset
-    # dataset = dataset.remove_columns(["text"])["train"]
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    # from datasets import load_dataset
+    # # Load in dataset
+    # from datasets import load_dataset, load_from_disk
+    # dataset = load_dataset(
+    #     "gmongaras/reddit_political_2019_Feb", 
+    #     cache_dir="./datasets",
+    # )
     
     # # Load in the dataset and map using the tokenizer
     # def map_function(example):
@@ -163,12 +109,9 @@ def main():
     #         "Attention mask or input_ids is not the correct length"
     #     # attention_mask = text_encoded["attention_mask"]
         
-    #     # The labels are the input ids shifted by 1, but we want to mask the loss for the context and padding
+    #     # The labels are the input ids, but we want to mask the loss for the context and padding
     #     labels = [text_encoded["input_ids"][i] if attention_mask[i] == 1 else -100 for i in range(len(attention_mask))]
     #     assert len(labels) == len(attention_mask) and len(attention_mask) == len(text_encoded["input_ids"]), "Labels is not the correct length"
-        
-    #     # Shift the labels by 1
-    #     labels = labels[1:] + [-100]
         
     #     return {
     #         "input_ids": text_encoded["input_ids"],
@@ -176,14 +119,71 @@ def main():
     #         "attention_mask": attention_mask
     #     }
     
-    # # Take a subset of 1000 on loading
-    # dataset = load_dataset(
-    #     "c4", 
-    #     name="realnewslike",
-    #     cache_dir="datasets",
-    # )["train"]
-    # load_from_cache_file = True if os.path.exists("realnewslike") else False
-    # dataset = dataset.map(map_function, batched=False, load_from_cache_file=load_from_cache_file, cache_file_name="realnewslike")
+    # # Take a subset of 1000
+    # dataset = dataset["train"].select(range(1000))
+    
+    # # Map the dataset
+    # dataset = dataset.map(map_function, batched=False)
+    
+    # # Remove text from dataset
+    # # dataset = dataset.remove_columns(["text"])["train"]
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    from datasets import load_dataset
+    
+    # Load in the dataset and map using the tokenizer
+    def map_function(example):
+        text = example["text"]
+        
+        # Encode the question and output
+        text_encoded = model.tokenizer[0](text, max_length=max_length-1, truncation=True, padding="max_length")
+        
+        # Add on a pad token to the end of the input_ids
+        text_encoded["input_ids"] = text_encoded["input_ids"] + [model.tokenizer[0].pad_token_id]
+        
+        # Attention mask is the length of the input_ids without the padding + 1
+        # because we want the model to stop itself
+        attention_mask = [1 for i in range(0, sum(text_encoded["attention_mask"]) + 1)] + [0 for i in range(sum(text_encoded["attention_mask"])+1, max_length)]
+        assert len(attention_mask) == max_length and len(text_encoded["input_ids"]) == max_length, \
+            "Attention mask or input_ids is not the correct length"
+        # attention_mask = text_encoded["attention_mask"]
+        
+        # The labels are the input ids shifted by 1, but we want to mask the loss for the context and padding
+        labels = [text_encoded["input_ids"][i] if attention_mask[i] == 1 else -100 for i in range(len(attention_mask))]
+        assert len(labels) == len(attention_mask) and len(attention_mask) == len(text_encoded["input_ids"]), "Labels is not the correct length"
+        
+        # Shift the labels by 1
+        labels = labels[1:] + [-100]
+        
+        return {
+            "input_ids": text_encoded["input_ids"],
+            "labels": labels,
+            "attention_mask": attention_mask
+        }
+    
+    # Take a subset of 1000 on loading
+    dataset = load_dataset(
+        "c4", 
+        name="realnewslike",
+        cache_dir="datasets",
+    )["train"]
+    load_from_cache_file = True if os.path.exists("realnewslike") else False
+    dataset = dataset.map(map_function, batched=False, load_from_cache_file=load_from_cache_file, cache_file_name="realnewslike")
     
     
     

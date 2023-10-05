@@ -237,7 +237,7 @@ class Trainer():
                 self.train_dataloader.sampler.set_epoch(epoch)
             
             # Iterate over the batches of data
-            for batch_num, batch in enumerate(tqdm(self.train_dataloader)):
+            for batch_num, batch in enumerate(tqdm(self.train_dataloader)) if is_main_process() else enumerate(self.train_dataloader):
                 with torch.no_grad():
                     # Model reference is different depending on the device
                     if self.dev == "cpu":
