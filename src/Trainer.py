@@ -315,7 +315,8 @@ class Trainer():
                         # Iterate over all test batches
                         cumulative_loss = 0
                         with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
-                            for test_batch_num, test_batch in enumerate(self.test_dataloader):
+                            for _ in tqdm(enumerate(self.test_dataloader), total=len(self.test_dataloader.dataset)//self.test_dataloader.batch_size):
+                                test_batch_num, test_batch = _
                                 # Convert batch to torch tensors
                                 test_batch["input_ids"] = torch.stack(test_batch["input_ids"]).T
                                 test_batch["labels"] = torch.stack(test_batch["labels"]).T

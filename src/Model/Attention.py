@@ -44,13 +44,13 @@ class Attention(torch.nn.Module):
         if type(masks) is not type(None):
             masks_orig = masks.clone()
             
-            # lookahead_masks = torch.triu(torch.ones(X.shape[1], X.shape[1]), diagonal=1).bool()
+            lookahead_masks = torch.triu(torch.ones(X.shape[1], X.shape[1]), diagonal=1).bool()
         
             # Create masks from binary of size (N, S) to float with infinities of size (N, S, S) with a -inf on the column vectors
             pad_masks = (~masks.unsqueeze(-1).repeat(1, 1, X.shape[1]).transpose(-1, -2).bool())
             
             # Combine masks
-            # masks = (pad_masks.to(X.device) + lookahead_masks.to(X.device)).bool()
+            masks = (pad_masks.to(X.device) + lookahead_masks.to(X.device)).bool()
             
             masks = pad_masks.to(X.device).bool()
         else:
