@@ -187,6 +187,17 @@ def main():
     
     
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     # Model trainer
     trainer = Trainer(
         model=model,

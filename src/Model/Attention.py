@@ -22,17 +22,43 @@ class Attention(torch.nn.Module):
         # Output projection
         self.out_proj = torch.nn.Linear(dim, dim, bias=False)
         
+        # Distance type
+        if distance_type == "cosine":
+            pass
+        elif distance_type == "l2":
+            pass
+        elif distance_type == "learnable_norm":
+            try:
+                import sys
+                sys.path.append('src/Model')
+                
+                from LearnableLPDistance import LearnableLPDistance
+            except ModuleNotFoundError:
+                from src.Model.LearnableLPDistance import LearnableLPDistance
+                
+            self.distance = LearnableLPDistance()
+        else:
+            raise ValueError("distance_type must be either 'cosine' or 'l2' or 'learnable_norm'")
+        
         # Activation function
         if activation_type == "none":
             self.act = lambda x: x
         elif activation_type == "relu":
             self.act = torch.nn.ReLU()
+        elif activation_type == "gelu":
+            self.act = torch.nn.GELU()
+        elif activation_type == "sigmoid":
+            self.act = torch.nn.Sigmoid()
         else:
-            raise ValueError("activation_type must be either 'none' or 'relu'")
+            raise ValueError("activation_type must be either 'none' or 'relu' or 'gelu' or 'sigmoid'")
         
         
         
         
+        
+    # Split into heads
+    def split_heads(self, t):
+        return t.reshape(t.shape[0], t.shape[1], self.num_heads, -1).transpose(1, 2)
         
         
         
@@ -52,7 +78,7 @@ class Attention(torch.nn.Module):
             # Combine masks
             masks = (pad_masks.to(X.device) + lookahead_masks.to(X.device)).bool()
             
-            masks = pad_masks.to(X.device).bool()
+            masks = masks.to(X.device).bool()
         else:
             masks_orig = None
             
@@ -65,9 +91,10 @@ class Attention(torch.nn.Module):
         V = self.v_proj(X)# * masks.unsqueeze(-1)
         
         # Split into heads
-        Q = Q.reshape(Q.shape[0], Q.shape[1], self.num_heads, -1).transpose(1, 2)
-        K = K.reshape(K.shape[0], K.shape[1], self.num_heads, -1).transpose(1, 2)
-        V = V.reshape(V.shape[0], V.shape[1], self.num_heads, -1).transpose(1, 2)
+        # Q = Q.reshape(Q.shape[0], Q.shape[1], self.num_heads, -1).transpose(1, 2)
+        # K = K.reshape(K.shape[0], K.shape[1], self.num_heads, -1).transpose(1, 2)
+        # V = V.reshape(V.shape[0], V.shape[1], self.num_heads, -1).transpose(1, 2)
+        Q, K, V = map(self.split_heads, [Q, K, V])
         if type(masks) != type(None):
             masks = masks[:, None, :, :]
         
@@ -97,16 +124,26 @@ class Attention(torch.nn.Module):
             
         # Inefficient coattention with mask and relu
         if self.distance_type == "cosine":
-            out =  self.act((((((Q)/torch.norm(Q, 2, -1).unsqueeze(-1)) \
-                @ ((K)/torch.norm(K, 2, -1).unsqueeze(-1)).transpose(-1, -2)))*(~masks if type(masks) != type(None) else 1)) \
+            out =  (self.act((((((Q)/torch.norm(Q, 2, -1).unsqueeze(-1)) \
+                @ ((K)/torch.norm(K, 2, -1).unsqueeze(-1)).transpose(-1, -2))))*(~masks if type(masks) != type(None) else 1)) \
                 @ V) * (masks_orig[:, None, :, None] if type(masks_orig) != type(None) else 1)
+            # out = \
+            #     (self.act((((Q / torch.norm(Q, 2, -1, keepdim=True)) @ (K / torch.norm(K, 2, -1, keepdim=True)).transpose(-1, -2)) * (~masks if masks is not None else 1)))
+            #     @ V
+            # ) * (masks_orig[:, None, :, None] if masks_orig is not None else 1)
         # normalized L2 attention
         elif self.distance_type == "l2":
             raise NotImplementedError("L2 distance not implemented")
-            out =  ((Q@K.T)*(~masks if type(masks) != type(None) else 1) \
+            out =  ((Q@K.T)\
+                *(~masks if type(masks) != type(None) else 1) \
                 @ V) * (masks_orig[:, None, :, None] if type(masks_orig) != type(None) else 1)
+        elif self.distance_type == "learnable_norm":
+            out = self.act((self.distance(K, Q)) \
+                * (~masks if type(masks) != type(None) else 1) \
+                @ V) \
+                * (masks_orig[:, None, :, None] if masks_orig is not None else 1)
         else:
-            raise ValueError("distance_type must be either 'cosine' or 'l2'")
+            raise ValueError("distance_type must be either 'cosine' or 'l2' or 'learnable_norm'")
         
         
         
