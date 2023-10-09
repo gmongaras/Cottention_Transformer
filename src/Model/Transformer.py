@@ -1,5 +1,6 @@
 import torch
 from transformers import AutoTokenizer
+import json
 
 try:
     import sys
@@ -46,9 +47,11 @@ class Transformer(torch.nn.Module):
         
         # Defaults for easy model loading
         self.defaults = {
-            "dim": dim,
             "num_layers": num_layers,
-            "scale_factor": scale_factor
+            "dim": dim,
+            "scale_factor": scale_factor,
+            "distance_type": distance_type,
+            "activation_type": activation_type
         }
         
     def forward(self, X, return_last=False):
@@ -88,3 +91,63 @@ class Transformer(torch.nn.Module):
             X = self.final_layer(X)
         
         return X
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    # Used to load in checkpoints
+    def load_checkpoint(self, path):
+        # Load in paramaters
+        with open(path + "/model_params.json", "r") as f:
+            self.defaults = json.load(f)
+        
+        step = self.defaults["step"]
+        epoch = self.defaults["epoch"]
+        wandb_id = self.defaults["wandb_id"]
+        del self.defaults["step"]
+        del self.defaults["epoch"]
+        del self.defaults["wandb_id"]
+        
+        device = self.final_layer[0].weight.device
+            
+        # Reinit model with checkpoint
+        self.__init__(**self.defaults)
+        
+        # Load in the model
+        self.load_state_dict(torch.load(path + "/model.pth", map_location=device))
+        self.eval()
+        
+        # Load in the optimizer
+        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-4)
+        try:
+            optimizer.load_state_dict(torch.load(path + "/optimizer.pth", map_location=device))
+        except:
+            print("Optimizer checkpoint not found")
+            optimizer = None
+        
+        # Load in the scheduler
+        if type(optimizer) is not type(None):
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1000, T_mult=1, eta_min=1e-6)
+            try:
+                scheduler.load_state_dict(torch.load(path + "/scheduler.pth", map_location=device))
+            except:
+                print("Scheduler checkpoint not found")
+                scheduler = None
+        else:
+            scheduler = None
+        
+        return optimizer, scheduler, epoch, step, wandb_id

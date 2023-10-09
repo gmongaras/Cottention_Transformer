@@ -10,13 +10,9 @@ from datasets import load_dataset, load_from_disk
 
 def main():
     # Model params
-    dim = 512
-    num_layers = 15
-    scale_factor = 2
-    distance_type = "cosine"
-    activation_type = "relu"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = torch.device("cpu")
+    checkpoint_path = "./checkpoints/step_3000"
     
     
     
@@ -37,9 +33,13 @@ def main():
     
     
     # Create the model
-    model = Transformer(num_layers, dim, scale_factor, distance_type, activation_type).to(device)
+    model = Transformer(1, 10, 1, "cosine", "none").to(device)
     # Load in checkpoint for model
-    model.load_state_dict(torch.load("./checkpoints/step_26500/model.pth"), strict=False)
+    # model.load_state_dict(torch.load("./checkpoints/step_26500/model.pth"), strict=False)
+    model.load_checkpoint(checkpoint_path)
+    
+    # Eval mode
+    model = model.eval()
     
     # '[CLS] After the martyrdom of St. Boniface, Vergilius was made Bishop of Salzburg ( 766 or 767 ) and laboured successfully for the upbuilding of his diocese as well as for the spread of the Faith in neighbouring heathen countries, especially in Carinthia. He died at Salzburg, 27 November, 789. In 1233 he was canonized by Gregory IX. His doctrine that the earth is a sphere was derived from the teaching of ancient geographers, and his belief in the existence of the antipodes was probably influenced by the accounts which the ancient Irish voyagers gave of their journeys. This, at least, is the opinion of Rettberg ( " Kirchengesch. Deutschlands ", II, 236 ). [SEP] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD] [PAD]'
     
@@ -65,7 +65,7 @@ def main():
         next_word = model.tokenizer[0].decode(output_)
         
         # Add next word to the input ids
-        tokenized["input_ids"] = torch.cat((tokenized["input_ids"], output_.unsqueeze(-1)), dim=-1)
+        tokenized["input_ids"] = torch.cat((tokenized["input_ids"].cpu(), output_.unsqueeze(-1).cpu()), dim=-1)
     
     print(model.tokenizer[0].decode(tokenized["input_ids"][0]))
     

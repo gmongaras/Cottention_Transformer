@@ -42,9 +42,7 @@ def main():
     save_every_steps = 1000
     use_scheduler = True
     checkpoints_dir = "checkpoints"
-    optimizer_checkpoint = None
     accumulation_steps = 1
-    scheduler_checkpoint = None
     use_amp = True
     clipping_value = 1.0
     weight_decay = 0.1
@@ -52,7 +50,11 @@ def main():
     adam_beta2 = 0.95
     warmup_steps = 1000
     wandb_name = None
-    test_per = 0.1
+    test_per = 0.01
+    
+    
+    # Checkpoint loading
+    pretrained_checkpoint_path = None
     
     
     
@@ -73,12 +75,24 @@ def main():
     
     
     # Create the model
-    model = Transformer(num_layers=num_layers, 
+    model = Transformer(
+        num_layers=num_layers, 
         dim=dim, 
         scale_factor=scale_factor, 
         distance_type=distance_type,
         activation_type=activation_type,
     )
+    
+    
+    
+    # Load in the checkpoint
+    optimizer_checkpoint = None
+    scheduler_checkpoint = None
+    epoch_ckpt = None
+    step_ckpt = None
+    wandb_id = None
+    if pretrained_checkpoint_path:
+        optimizer_checkpoint, scheduler_checkpoint, epoch_ckpt, step_ckpt, wandb_id = model.load_checkpoint(pretrained_checkpoint_path)
     
     
     
@@ -224,7 +238,7 @@ def main():
     )
     
     # Train model
-    trainer.train()
+    trainer.train(epoch_ckpt=epoch_ckpt, step_ckpt=step_ckpt, wandb_id=wandb_id)
     
     exit()
     

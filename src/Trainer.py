@@ -173,7 +173,7 @@ class Trainer():
             
             
             
-    def train(self, epoch_ckpt=None, step_ckpt=None):
+    def train(self, epoch_ckpt=None, step_ckpt=None, wandb_id=None):
         self.model.train()
         
         # Initialize wandb run
@@ -181,6 +181,11 @@ class Trainer():
             wandb.init(
                 project="Cottention",
                 name=self.wandb_name,
+                notes=None, # May add notes later
+                
+                # Resume training if checkpoint exists
+                resume="must" if wandb_id is not None else None,
+                id=wandb_id,
             )
             wandb.watch(self.model, log_freq=self.save_every_steps)
         
@@ -208,6 +213,12 @@ class Trainer():
                     betas=(self.adam_beta1, self.adam_beta2),
                     eps=1e-7 if self.use_amp else 1e-8)\
                         if self.optimizer_checkpoint is None else self.optimizer_checkpoint
+        if self.optimizer_checkpoint is not None:
+            # Map to device
+            for state in optimizer.state.values():
+                for k, v in state.items():
+                    if isinstance(v, torch.Tensor):
+                        state[k] = v.to(self.model.device)
         
         # Loss function
         loss_fn = torch.nn.CrossEntropyLoss()
@@ -217,8 +228,12 @@ class Trainer():
         if self.use_scheduler:
             # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
             # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=10000*len(self.dataloader), eta_min=1e-6) if self.scheduler_checkpoint is None else self.scheduler_checkpoint
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=100, T_mult=1, eta_min=1e-6) if self.scheduler_checkpoint is None else self.scheduler_checkpoint
             # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=10000*len(self.dataloader), eta_min=1e-6) if self.scheduler_checkpoint is None else self.scheduler_checkpoint
+            
+            # T_0 is the number of steps before the first restart
+            # T_mult is the factor by which the period is increased after each restart
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1000, T_mult=1, eta_min=1e-6) if self.scheduler_checkpoint is None else self.scheduler_checkpoint
+            
             # https://github.com/Tony-Y/pytorch_warmup
             # warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
             warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=self.warmup_steps)
@@ -278,9 +293,9 @@ class Trainer():
                         # Step scheduler
                         if self.use_scheduler:
                             with warmup_scheduler.dampening():
-                                # scheduler.step() # Normal
+                                scheduler.step() # Normal
                                 # scheduler.step(loss) # Plateau
-                                scheduler.step(epoch + batch_num / len(self.train_dataloader.dataset)) # Cosine Annealing
+                                # scheduler.step(epoch + batch_num / len(self.train_dataloader.dataset)) # Cosine Annealing
                         # Step optimizer
                         if self.use_amp:
                             grad_scaler.step(optimizer)
@@ -353,8 +368,9 @@ class Trainer():
                         if not os.path.exists(f"{self.checkpoints_dir}/step_{num_steps}"):
                             os.makedirs(f"{self.checkpoints_dir}/step_{num_steps}")
                         with open(f"{self.checkpoints_dir}/step_{num_steps}/model_params.json", "w") as f:
-                            model_ref.defaults["step"] = num_steps+1
-                            model_ref.defaults["epoch"] = epoch
+                            model_ref.defaults["step"] = num_steps+1 # step checkpoint
+                            model_ref.defaults["epoch"] = epoch # epoch checkpoint
+                            model_ref.defaults["wandb_id"] = wandb.run.id # wandb id
                             json.dump(model_ref.defaults, f)
                         
                         # Save model checkpoints
