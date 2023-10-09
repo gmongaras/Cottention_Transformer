@@ -267,7 +267,7 @@ class Trainer():
                     
                 with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
                     # Send through model
-                    output = model_ref(batch)
+                    output = self.model(batch)
                     
                     # Calculate loss
                     loss = loss_fn(output.transpose(-1, -2), batch["labels"].to(output.device))
@@ -287,15 +287,15 @@ class Trainer():
                         if self.use_amp:
                             grad_scaler.unscale_(optimizer)
                         if self.clipping_value is not None:
-                            torch.nn.utils.clip_grad_norm_(model_ref.parameters(), self.clipping_value)
+                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clipping_value)
                         
                         
                         # Step scheduler
                         if self.use_scheduler:
                             with warmup_scheduler.dampening():
-                                scheduler.step() # Normal
+                                # scheduler.step() # Normal
                                 # scheduler.step(loss) # Plateau
-                                # scheduler.step(epoch + batch_num / len(self.train_dataloader.dataset)) # Cosine Annealing
+                                scheduler.step(epoch + batch_num / len(self.train_dataloader.dataset)) # Cosine Annealing
                         # Step optimizer
                         if self.use_amp:
                             grad_scaler.step(optimizer)
@@ -325,7 +325,7 @@ class Trainer():
                 if num_steps % self.save_every_steps == 0 and is_main_process():
                     with torch.no_grad():
                         # Set model to eval mode
-                        model_ref.eval()
+                        self.model.eval()
                         
                         # Iterate over all test batches
                         cumulative_loss = 0
@@ -338,7 +338,7 @@ class Trainer():
                                 test_batch["attention_mask"] = torch.stack(test_batch["attention_mask"]).T
                                 
                                 # Send through model
-                                output = model_ref(test_batch)
+                                output = self.model(test_batch)
                                 
                                 # Calculate loss
                                 loss = loss_fn(output.transpose(-1, -2), test_batch["labels"].to(output.device))
@@ -391,7 +391,7 @@ class Trainer():
                             
                             
                         # Set model back to train mode
-                        model_ref.train()
+                        self.model.train()
                 
                 
                 
