@@ -4,6 +4,7 @@ datasets/
 realnewslike
 checkpoints/
 wandb/
+BERT_Trainer/BERT_Model
 
 
 
