@@ -1,43 +1,76 @@
 import transformers
 from datasets import load_dataset
 import os
+import re
+import datasets
+import tqdm
+
+from concurrent.futures import ProcessPoolExecutor
+import itertools
+from multiprocessing import cpu_count
+import logging
 
 TOKEN = ""
+
+
+
+# Tokenizer
+tokenizer = transformers.AutoTokenizer.from_pretrained("bert-base-cased", use_fast=True, cache_dir="BERT_Trainer/BERT_Model")
+
+# What is the max length for the model?
+max_length = tokenizer.model_max_length
+
+
+def clean_text(line):
+    # Remove unnecessary characters
+    for char_ in ['``', "''", '`` ', "'' "]:
+        line = line.replace(char_, '')
+        
+    # Trim whitespace
+    line = line.strip()
+    
+    return line
+
+
+# Used to get all sentence pairs and tokenize them
+def get_pairs(examples):
+    # Breakup line into sentences by splitting on periods, but not decimal points
+    # and on question marks and exclamation points
+    sentences = [clean_text(i) for i in re.split(r'(?<!\d)(?<!\b[A-Z])\.(?!\d)|\?|!', examples)]
+    
+    # Remove sentences longer than the max length and longer than 10
+    sentences = [i for i in sentences if len(i) <= max_length//2 and len(i) > 10]
+    
+    # Add sentence pairs separated by [SEP]
+    sentence_pairs = []
+    for i in range(len(sentences) - 1):
+        sentence_pairs.append({"text": sentences[i] + "[SEP]" + sentences[i + 1]})
+        
+    return sentence_pairs
+
+
+
+# Function to process a batch of examples
+def process_batch(batch):
+    return [get_pairs(example) for example in batch]
+
+# Function to divide data into batches
+def chunk_data(data, chunk_size):
+    for i in range(0, len(data), chunk_size):
+        yield data[i:i + chunk_size]
 
 
 
 def main():
     wiki_cache_path = "BERT_Trainer/data_cache/wikipedia_dataset"
     book_cache_path = "BERT_Trainer/data_cache/book_dataset"
-    
-    
-    # Tokenizer
-    tokenizer = transformers.AutoTokenizer.from_pretrained("bert-base-cased", use_fast=False, cache_dir="BERT_Trainer/BERT_Model")
-
-    # BERT Model
-    model = transformers.BertModel.from_pretrained("bert-base-cased", cache_dir="BERT_Trainer/BERT_Model", output_hidden_states=True, output_attentions=True)
-
-
-    # Function to tokenize the "text" column of the dataset
-    def tokenize_function(examples):
-        return tokenizer(examples["text"], padding="max_length", truncation=True, max_length=model.config.max_position_embeddings)
 
     # Load in datasets
     if not os.path.exists(wiki_cache_path):
         os.makedirs(wiki_cache_path)
-    # wiki_data = load_dataset("wikipedia", language="en", date="20220301.en", split="train", cache_dir="BERT_Trainer/wikipedia_dataset", beam_runner='DirectRunner')
     if not os.path.exists("BERT_Trainer/wikipedia_dataset"):
         os.makedirs("BERT_Trainer/wikipedia_dataset")
     wiki_data = load_dataset("wikipedia", "20220301.en", split="train", cache_dir="BERT_Trainer/wikipedia_dataset")
-    
-    # Tokenize the dataset
-    wiki_tokenized_dataset = wiki_data.map(tokenize_function, batched=True, num_proc=10, remove_columns=["text", "id", "url", "title"], cache_file_name=wiki_cache_path + "/wikipedia_tokenized_dataset.arrow")
-    
-    # # Load dataset
-    # wiki_tokenized_dataset = load_dataset(wiki_cache_path)
-    
-    # Upload to huggingface hub
-    wiki_tokenized_dataset.push_to_hub("gmongaras/wikipedia_BERT_512", token=TOKEN)
     
     
     # Load in datasets
@@ -48,14 +81,51 @@ def main():
         os.makedirs("BERT_Trainer/bookcorpus_dataset")
     book_data = load_dataset("bookcorpus", split="train", cache_dir="BERT_Trainer/bookcorpus_dataset")
 
-    # Tokenize the dataset
-    book_tokenized_dataset = book_data.map(tokenize_function, batched=True, num_proc=10, remove_columns=["text"], cache_file_name=book_cache_path + "/book_tokenized_dataset.arrow", load_from_cache_file=True)
+    # # Set up basic logging
+    # logging.basicConfig(level=logging.INFO)
+
+    # # Determine the chunk size based on dataset size and available CPUs
+    # chunk_size = max(1, len(wiki_data) // (2 * cpu_count()))
+
+    # # Process data in batches
+    # with ProcessPoolExecutor() as executor:
+    #     # Create batches for both datasets
+    #     batches = list(itertools.chain(chunk_data(wiki_data["text"], chunk_size), chunk_data(book_data["text"], chunk_size)))
+
+    #     # Total number of batches
+    #     total_batches = len(batches)
+
+    #     # Initialize a counter for completed batches
+    #     completed_batches = 0
+
+    #     # Process batches in parallel and update the counter
+    #     for batch_result in executor.map(process_batch, batches):
+    #         completed_batches += 1
+    #         logging.info(f"Processed batch {completed_batches}/{total_batches}")
+
+    #         # Extend sentence_pairs with results from the current batch
+    #         sentence_pairs.extend(batch_result)
+
+    # # Flattening the list of lists into a single list
+    # sentence_pairs = list(itertools.chain.from_iterable(sentence_pairs))
     
-    # Load dataset
-    # book_tokenized_dataset = load_dataset(book_cache_path, keep_in_memory=False)
-        
-    # Upload to huggingface hub
-    book_tokenized_dataset.push_to_hub("gmongaras/book_BERT_512", token=TOKEN, num_shards=10)
+    # Collect all sentence pairs from the datasets
+    sentence_pairs = []
+    for wiki_example in tqdm.tqdm(wiki_data, total=len(wiki_data)):
+        sentence_pairs += get_pairs(wiki_example["text"])
+            
+    for book_example in tqdm.tqdm(book_data, total=len(book_data)):
+        sentence_pairs += get_pairs(book_example["text"])
+
+
+
+
+    
+    # hf dataset from list
+    sentence_pairs = datasets.Dataset.from_list(sentence_pairs)
+    
+    # Push to hub
+    sentence_pairs.push_to_hub("gmongaras/BERT_Base_Cased_512_Dataset", token=TOKEN)
     
     
     
