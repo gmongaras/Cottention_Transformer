@@ -9,7 +9,7 @@ from BERT_Trainer.Trainer import Trainer
 
 def main():
     # Create the model trainer
-    trainer = Trainer()
+    trainer = Trainer(device=torch.device("cuda:0"))
     
     # Train model
     trainer()
