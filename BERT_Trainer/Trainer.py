@@ -8,6 +8,61 @@ from tqdm import tqdm
 from contextlib import nullcontext
 
 
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
+
+from multi_gpu_helpers import is_main_process
+
+
+
+
+
+
+
+
+
+def init_distributed():
+    # Initializes the distributed backend which will take care of synchronizing nodes/GPUs
+    dist_url = "env://" # default
+
+    # only works with torch.distributed.launch // torchrun
+    rank = int(os.environ["RANK"])
+    world_size = int(os.environ['WORLD_SIZE'])
+    local_rank = int(os.environ['LOCAL_RANK'])
+    
+    # Try the nccl backend
+    try:
+        dist.init_process_group(
+                backend="nccl",
+                init_method=dist_url,
+                world_size=world_size,
+                rank=rank)
+    # Use the gloo backend if nccl isn't supported
+    except RuntimeError:
+        dist.init_process_group(
+                backend="gloo",
+                init_method=dist_url,
+                world_size=world_size,
+                rank=rank)
+
+    # this will make all .cuda() calls work properly
+    torch.cuda.set_device(local_rank)
+
+    # synchronizes all the threads to reach this point before moving on
+    dist.barrier()
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def get_scheduler(optimizer, warmup_steps, total_steps):
@@ -27,21 +82,28 @@ def get_scheduler(optimizer, warmup_steps, total_steps):
 
 class Trainer():
     def __init__(self, 
-            batch_size=32,
+            batch_size=256,
             learning_rate=1e-4,
             warmup_steps=10_000,
             num_steps=1_000_000, 
-            device=torch.device("cpu"),
+            dev="cpu",
             wandb_name=None,
             log_steps=10,
             use_amp=True,
         ):
-        self.batch_size = batch_size
         self.num_steps = num_steps
-        self.device = device
         self.wandb_name = wandb_name
         self.log_steps = log_steps
         self.use_amp = use_amp
+        self.dev = dev
+        
+        
+        # Divide the batch size by the number of GPUs
+        if dev != "cpu":
+            batch_size = batch_size // torch.cuda.device_count()
+        else:
+            batch_size = batch_size
+        self.batch_size = batch_size
         
         
         # Tokenizer
@@ -68,7 +130,25 @@ class Trainer():
             "type_vocab_size": 2,
             "use_cache": True,
             "vocab_size": 28996
-        })).to(self.device)
+        }))
+        
+        
+        
+        
+        # Put the model on the desired device
+        if dev != "cpu":
+            # Initialize the environment
+            init_distributed()
+            
+            try:
+                local_rank = int(os.environ['LOCAL_RANK'])
+            except KeyError:
+                local_rank = 0
+                print("LOCAL_RANK not found in environment variables. Defaulting to 0.")
+
+            self.model = DDP(self.model.cuda(), device_ids=[local_rank], find_unused_parameters=False)
+        else:
+            self.model = self.model.cpu()
         
         
         
@@ -77,6 +157,19 @@ class Trainer():
         
         # LR Scheduler
         self.scheduler = get_scheduler(self.optimizer, warmup_steps=warmup_steps, total_steps=self.num_steps)
+        
+        
+        # Base model reference for DDP
+        if self.dev == "cpu":
+            self.model_ref = self.model
+        else:
+            self.model_ref = self.model.module
+        
+        
+        
+        # Used to get a random token from the dataset, not including special tokens (0, 101, 102, 103)
+        self.tokens = torch.arange(0, self.model_ref.config.vocab_size)
+        self.tokens = self.tokens[(self.tokens != 0) & (self.tokens != 101) & (self.tokens != 102) & (self.tokens != 103)]
         
         
         
@@ -114,7 +207,7 @@ class Trainer():
                 batch[i]["attention_mask"] = torch.cat([batch[i]["attention_mask"][:sep_index+1], torch.ones_like(random_sentence)])
                 batch[i]["token_type_ids"] = torch.cat([batch[i]["token_type_ids"][:sep_index+1], torch.ones_like(random_sentence)])
                 
-                sentence_pairs_labels.append(0)
+                sentence_pairs_labels.append(1)
                 
             # Otherwise, just change the second sentence to type B
             else:
@@ -124,7 +217,7 @@ class Trainer():
                 # Change the token type ids to type B
                 batch[i]["token_type_ids"][sep_index+1:] = 1
                 
-                sentence_pairs_labels.append(1)
+                sentence_pairs_labels.append(0)
                 
         
         
@@ -146,33 +239,30 @@ class Trainer():
             labels = batch[i]["input_ids"].clone()
             
             for t in range(len(batch[i]["input_ids"])):
-                # If the token is a padding token, the label is -100
-                if batch[i]["input_ids"][t] == 0:
+                # If the token is a special token, the label is -100
+                if batch[i]["input_ids"][t] == 0 or batch[i]["input_ids"][t] == 102 or batch[i]["input_ids"][t] == 101:
                     labels[t] = -100
                     continue
                 
                 # Mask 15% of the tokens
                 if torch.rand(1) < 0.15:
+                    # Update Label
+                    labels[t] = batch[i]["input_ids"][t]
+                    
                     # 80% of the time, replace with [MASK]
                     if torch.rand(1) < 0.8:
-                        # Update Label
-                        labels[t] = batch[i]["input_ids"][t]
-                        
                         # Update token
                         batch[i]["input_ids"][t] = 103
                         
                     # 10% of the time, replace with random token
                     elif torch.rand(1) < 0.5:
-                        # Update Label
-                        labels[t] = batch[i]["input_ids"][t]
-                        
-                        # Update token
-                        batch[i]["input_ids"][t] = torch.randint(self.tokenizer.vocab_size, (1,))
+                        # Update token. Do not allow special tokens (0, 101, 102, 103)
+                        batch[i]["input_ids"][t] = self.tokens[torch.randint(len(self.tokens), (1,))]
                         
                     # 10% of the time, keep the same
                     else:
-                        # Label is not -100
-                        labels[t] = batch[i]["input_ids"][t]
+                        # Label is not -100 as the model still has to predict the token
+                        pass
                         
                 # Otherwise, keep the same.
                 # -100 is the ignore index for the loss function
@@ -184,11 +274,11 @@ class Trainer():
                     
         # Stack the data
         return {
-            "input_ids": torch.stack([x["input_ids"] for x in batch]).to(self.device),
-            "attention_mask": torch.stack([x["attention_mask"] for x in batch]).to(self.device),
-            "token_type_ids": torch.stack([x["token_type_ids"] for x in batch]).to(self.device),
-            "labels": torch.stack([x["labels"] for x in batch]).to(self.device),
-            "sentence_pairs_labels": torch.tensor(sentence_pairs_labels, dtype=torch.long).to(self.device)
+            "input_ids": torch.stack([x["input_ids"] for x in batch]),
+            "attention_mask": torch.stack([x["attention_mask"] for x in batch]),
+            "token_type_ids": torch.stack([x["token_type_ids"] for x in batch]),
+            "labels": torch.stack([x["labels"] for x in batch]),
+            "sentence_pairs_labels": torch.tensor(sentence_pairs_labels, dtype=torch.long)
         }
         
             
@@ -217,22 +307,32 @@ class Trainer():
         random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True)
         
         # PyTorch data loader
-        data_loader = torch.utils.data.DataLoader(self.tokenized_dataset, sampler=random_sampler, batch_size=self.batch_size, collate_fn=lambda x: x)
+        data_loader = torch.utils.data.DataLoader(
+            self.tokenized_dataset, 
+            sampler=random_sampler, 
+            batch_size=self.batch_size, 
+            collate_fn=lambda x: x,
+            
+            num_workers=10,
+            prefetch_factor=10,
+            persistent_workers=True,
+        )
         
         # Train mode
         self.model.train()
         
         # Initialize wandb run
-        wandb.init(
-            project="Cottention",
-            name=self.wandb_name,
-            notes=None, # May add notes later
-            
-            # # Resume training if checkpoint exists
-            # resume="must" if wandb_id is not None else None,
-            # id=wandb_id,
-        )
-        wandb.watch(self.model, log_freq=self.log_steps)
+        if is_main_process():
+            wandb.init(
+                project="Cottention",
+                name=self.wandb_name,
+                notes=None, # May add notes later
+                
+                # # Resume training if checkpoint exists
+                # resume="must" if wandb_id is not None else None,
+                # id=wandb_id,
+            )
+            wandb.watch(self.model, log_freq=self.log_steps)
         
         # Automatic mixed precision
         if self.use_amp:
@@ -243,13 +343,15 @@ class Trainer():
         batch_NSP_loss = 0
         batch_loss = 0
         
+        loss_fct_MLM = nn.CrossEntropyLoss(ignore_index=-100)
+        loss_fct_NSP = nn.CrossEntropyLoss()
+        
         # Training loop
-        for step, batch in enumerate(tqdm(data_loader)):
+        for step, batch in enumerate(tqdm(data_loader)) if is_main_process() else enumerate(data_loader):
             # Set the epoch number for the dataloader to seed the
             # randomization of the sampler
             # if self.dev != "cpu":
-            #     self.train_dataloader.sampler.set_epoch(step)
-            # data_loader.sampler.set_epoch(step)
+            #     data_loader.sampler.set_epoch(step)
             
             # Augment input
             batch = self.augment_data(batch)
@@ -263,13 +365,12 @@ class Trainer():
             
             with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
                 # Get model predictions
+                # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
                 outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
                 
                 # Losses for the MLM and NSP
-                loss_fct_MLM = nn.CrossEntropyLoss(ignore_index=-100)
-                loss_fct_NSP = nn.CrossEntropyLoss()
-                MLM_loss = loss_fct_MLM(outputs.prediction_logits.view(-1, self.model.config.vocab_size), labels.view(-1))
-                NSP_loss = loss_fct_NSP(outputs.seq_relationship_logits, sentence_pairs_labels)
+                MLM_loss = loss_fct_MLM(outputs.prediction_logits.view(-1, self.model_ref.config.vocab_size), labels.view(-1).to(outputs.prediction_logits.device))
+                NSP_loss = loss_fct_NSP(outputs.seq_relationship_logits, sentence_pairs_labels.to(outputs.seq_relationship_logits.device))
                 
                 # Total loss
                 loss = MLM_loss + NSP_loss
@@ -308,13 +409,14 @@ class Trainer():
             
             # Log wandb
             if step % self.log_steps == 0:
-                wandb.log({
-                    "MLM loss": batch_MLM_loss,
-                    "NSP loss": batch_NSP_loss,
-                    "loss": batch_loss,
-                    "lr": self.optimizer.param_groups[0]['lr'],
-                    "step": step,
-                })
+                if is_main_process():
+                    wandb.log({
+                        "MLM loss": batch_MLM_loss,
+                        "NSP loss": batch_NSP_loss,
+                        "loss": batch_loss,
+                        "lr": self.optimizer.param_groups[0]['lr'],
+                        "step": step,
+                    })
                 
                 batch_MLM_loss = 0
                 batch_NSP_loss = 0

@@ -2,14 +2,17 @@ import torch
 import datasets
 import os
 import transformers
-from BERT_Trainer.Trainer import Trainer
+try:
+    from BERT_Trainer.Trainer import Trainer
+except ModuleNotFoundError:
+    from Trainer import Trainer
 
 
 
 
 def main():
     # Create the model trainer
-    trainer = Trainer(device=torch.device("cuda:0"))
+    trainer = Trainer(dev="gpu")
     
     # Train model
     trainer()
