@@ -29,7 +29,7 @@ class Trainer():
     def __init__(self, 
             batch_size=32,
             learning_rate=1e-4,
-            warmup_steps=100,
+            warmup_steps=10_000,
             num_steps=1_000_000, 
             device=torch.device("cpu"),
             wandb_name=None,
