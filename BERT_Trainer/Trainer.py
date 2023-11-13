@@ -12,7 +12,12 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
-from multi_gpu_helpers import is_main_process
+try:
+    from BERT_Trainer.multi_gpu_helpers import is_main_process
+    from BERT_Trainer.BertCosAttention import BertCosAttention
+except ModuleNotFoundError:
+    from multi_gpu_helpers import is_main_process
+    from BertCosAttention import BertCosAttention
 
 
 
@@ -90,12 +95,17 @@ class Trainer():
             wandb_name=None,
             log_steps=10,
             use_amp=True,
+            attention_type="soft",
+            clipping_value=None,
+            weight_decay=0.01,
         ):
         self.num_steps = num_steps
         self.wandb_name = wandb_name
         self.log_steps = log_steps
         self.use_amp = use_amp
         self.dev = dev
+        self.clipping_value = clipping_value
+        self.weight_decay = weight_decay
         
         
         # Divide the batch size by the number of GPUs
@@ -135,6 +145,16 @@ class Trainer():
         
         
         
+        # Replace all self attention layers (BertSelfAttention) with the cosine attention layer (BertCosAttention)
+        if attention_type == "cos":
+            for layer in self.model.bert.encoder.layer:
+                old = layer.attention.self
+                layer.attention.self = BertCosAttention(self.model.config).to(layer.attention.self.query.weight.device)
+                del old
+        
+        
+        
+        
         # Put the model on the desired device
         if dev != "cpu":
             # Initialize the environment
@@ -153,7 +173,7 @@ class Trainer():
         
         
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, betas=(0.9, 0.999), weight_decay=0.01, eps=1e-7)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
         
         # LR Scheduler
         self.scheduler = get_scheduler(self.optimizer, warmup_steps=warmup_steps, total_steps=self.num_steps)
@@ -164,6 +184,7 @@ class Trainer():
             self.model_ref = self.model
         else:
             self.model_ref = self.model.module
+        
         
         
         
@@ -324,7 +345,7 @@ class Trainer():
         # Initialize wandb run
         if is_main_process():
             wandb.init(
-                project="Cottention",
+                project="Cos_BERT",
                 name=self.wandb_name,
                 notes=None, # May add notes later
                 
@@ -380,6 +401,12 @@ class Trainer():
                 grad_scaler.scale(loss).backward()
             else:
                 loss.backward()
+                
+            # Clip gradients
+            if self.use_amp:
+                grad_scaler.unscale_(self.optimizer)
+            if self.clipping_value is not None:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clipping_value)
             
             # Take optimizer step
             if self.use_amp:
