@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 import math
 import torch
 from torch import nn
+import os
 
 
 
@@ -100,26 +101,64 @@ class BertCosAttention(nn.Module):
             value_layer = value_layer * attention_mask.transpose(-1, -2)
         
         
+        # Normalize query, and keys
+        query_layer = torch.nn.functional.normalize(query_layer, dim=-1, p=2)
+        key_layer = torch.nn.functional.normalize(key_layer, dim=-1, p=2)
+        
         # If dimensionality is larger than sequence length, then we are doing
         # S^2 by (QK^T)V
         if query_layer.shape[-1] > query_layer.shape[-2]:
-            attention_probs = torch.matmul(
-                query_layer/ (torch.norm(query_layer, dim=-1, keepdim=True, p=2)+1e-7),
-                (key_layer/ (torch.norm(key_layer, dim=-1, keepdim=True, p=2)+1e-7)).transpose(-1, -2)
-            )
+            # attention_probs = torch.matmul(
+            #     query_layer,
+            #     key_layer.transpose(-1, -2)
+            # )
             
-            context_layer = torch.matmul(attention_probs, value_layer)
+            # # Matplotlib attention heatmap
+            # import matplotlib.pyplot as plt
+            # probs = attention_probs[0].detach().cpu().numpy()
+            # for head in range(probs.shape[0]):
+            #     # Shape is (num_heads, seq_len, seq_len)
+            #     plt.imshow(probs[head])
+            #     plt.show()
+            #     if not os.path.exists("imgs"):
+            #         os.makedirs("imgs")
+            #     plt.savefig(f"imgs/attention{head}.png")
+            
+            # context_layer = torch.matmul(attention_probs, value_layer)
+            
+            
+            # # Implemented as einsum:
+            # context_layer = torch.einsum(
+            #     "nhse,nhqe,nhqw->nhsw", 
+            #     query_layer, key_layer, value_layer
+            # )
+            
+            
+            # More effiicent implementation:
+            context_layer = torch.einsum("nhsq,nhqw->nhsw", torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer), value_layer)
+            
         # Otherwise, we are doing d^2 Q(K^TV)
         else:
-            attention_probs = torch.matmul(
-                (key_layer/ (torch.norm(key_layer, dim=-1, keepdim=True, p=2)+1e-7)).transpose(-1, -2),
-                value_layer
-            )
+            # attention_probs = torch.matmul(
+            #     key_layer.transpose(-1, -2),
+            #     value_layer
+            # )
             
-            context_layer = torch.matmul(
-                query_layer/ (torch.norm(query_layer, dim=-1, keepdim=True, p=2)+1e-7), 
-                attention_probs
-            )
+            # context_layer = torch.matmul(
+            #     query_layer, 
+            #     attention_probs
+            # )
+            
+            # # Implemented as einsum:
+            # context_layer = torch.einsum(
+            #     "nhse,nhqe,nhqw->nhsw", 
+            #     query_layer, key_layer, value_layer
+            # )
+            
+            # More effiicent implementation:
+            context_layer = torch.einsum("nhsw,nhwe->nhse", query_layer, torch.einsum("nhse,nhsw->nhew", key_layer, value_layer))
+            
+        attention_probs = None
 
         if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
             raise NotImplementedError

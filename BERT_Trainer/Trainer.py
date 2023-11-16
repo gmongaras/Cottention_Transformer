@@ -98,6 +98,8 @@ class Trainer():
             attention_type="soft",
             clipping_value=None,
             weight_decay=0.01,
+            model_save_path=None,
+            num_save_steps=10_000,
         ):
         self.num_steps = num_steps
         self.wandb_name = wandb_name
@@ -106,6 +108,8 @@ class Trainer():
         self.dev = dev
         self.clipping_value = clipping_value
         self.weight_decay = weight_decay
+        self.model_save_path = model_save_path.replace(" ", "_") if model_save_path is not None else None
+        self.num_save_steps = num_save_steps
         
         
         # Divide the batch size by the number of GPUs
@@ -173,7 +177,7 @@ class Trainer():
         
         
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
         
         # LR Scheduler
         self.scheduler = get_scheduler(self.optimizer, warmup_steps=warmup_steps, total_steps=self.num_steps)
@@ -199,7 +203,7 @@ class Trainer():
         # Max lenght of the input
         max_length = max([len(x["input_ids"]) for x in batch])
         
-        # 1 if the sentences go together, else 1
+        # 0 if the sentences go together, else 1
         sentence_pairs_labels = []
         
         
@@ -325,7 +329,7 @@ class Trainer():
         self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids"])
         
         # PyTorch random sampler
-        random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True)
+        random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=self.num_steps*self.batch_size)
         
         # PyTorch data loader
         data_loader = torch.utils.data.DataLoader(
@@ -452,3 +456,37 @@ class Trainer():
             # Break if we have reached the max number of steps
             if step >= self.num_steps:
                 break
+            
+            
+            
+            
+            if (step+1) % self.num_save_steps == 0:
+                self.save_model()
+            
+            
+            
+    def save_model(self):
+        if is_main_process():
+            # Save the model
+            self.model_ref.save_pretrained(self.model_save_path)
+            self.tokenizer.save_pretrained(self.model_save_path)
+            
+            # Save the optimizer
+            torch.save(self.optimizer.state_dict(), os.path.join(self.model_save_path, "optimizer.pt"))
+            
+            # Save the scheduler
+            torch.save(self.scheduler.state_dict(), os.path.join(self.model_save_path, "scheduler.pt"))
+            
+            # Save the config
+            torch.save({
+                "num_steps": self.num_steps,
+                "wandb_name": self.wandb_name,
+                "log_steps": self.log_steps,
+                "use_amp": self.use_amp,
+                "dev": self.dev,
+                "clipping_value": self.clipping_value,
+                "weight_decay": self.weight_decay,
+            }, os.path.join(self.model_save_path, "config.pt"))
+            
+            # Save the tokenizer
+            torch.save(self.tokenizer, os.path.join(self.model_save_path, "tokenizer.pt"))
