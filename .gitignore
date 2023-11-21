@@ -4,7 +4,12 @@ datasets/
 realnewslike
 checkpoints/
 wandb/
-BERT_Trainer/BERT_Model
+BERT_Trainer/BERT_Model/
+BERT_Trainer/data_cache/
+BERT_Trainer/*.sh
+BERT_Trainer/*.out
+BERT_Trainer/wikipedia_dataset/
+BERT_Trainer/bookcorpus_dataset/
 
 
 

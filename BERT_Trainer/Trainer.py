@@ -6,6 +6,7 @@ import os
 import wandb
 from tqdm import tqdm
 from contextlib import nullcontext
+import copy
 
 
 from torch.utils.data.distributed import DistributedSampler
@@ -214,7 +215,7 @@ class Trainer():
             # Augment 50% of the sentences
             if torch.rand(1) < 0.5:
                 # Get a random sentence from the dataset
-                random_sentence = self.tokenized_dataset[torch.randint(len(self.tokenized_dataset), (1,))]["input_ids"][0]
+                random_sentence = next(iter(self.random_data_loader))['input_ids'][0]
                 
                 # Randomly get the first or second sentence in the pair
                 idxs = (random_sentence == 102).nonzero(as_tuple=True)[0]
@@ -338,10 +339,24 @@ class Trainer():
             batch_size=self.batch_size, 
             collate_fn=lambda x: x,
             
-            num_workers=10,
+            num_workers=2,
             prefetch_factor=10,
             persistent_workers=True,
         )
+        
+        
+        
+        # Data loader for random sentence sampling 
+        # Create a sampler for random data fetching
+        self.random_data_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=1)
+        # Create a data loader for fetching random datapoints
+        self.random_data_loader = torch.utils.data.DataLoader(
+            self.tokenized_dataset,
+            batch_size=1,
+            sampler=self.random_data_sampler
+        )
+        
+        
         
         # Train mode
         self.model.train()
@@ -452,6 +467,10 @@ class Trainer():
                 batch_MLM_loss = 0
                 batch_NSP_loss = 0
                 batch_loss = 0
+                
+                # if is_main_process():
+                #     for i in range(0, len(outputs.attentions)):
+                #         wandb.log({f"attn{i}": wandb.Histogram(torch.norm(outputs.attentions[i], dim=-1).cpu().detach().float().numpy())})
             
             # Break if we have reached the max number of steps
             if step >= self.num_steps:
@@ -462,6 +481,11 @@ class Trainer():
             
             if (step+1) % self.num_save_steps == 0:
                 self.save_model()
+                
+                
+                
+            # Clear cache
+            # torch.cuda.empty_cache()
             
             
             

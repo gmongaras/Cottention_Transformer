@@ -13,17 +13,17 @@ except ModuleNotFoundError:
 def main():
     # Create the model trainer
     batch_size=256
-    learning_rate=1e-5
+    learning_rate=1e-4
     warmup_steps=10_000
     num_steps=1_000_000
     dev="gpu"
-    wandb_name="learning rate 1e-5"
+    wandb_name="lr1e-4_Cos_divLearnExpUnifSigmoid"
     log_steps=10
     use_amp=True
     attention_type="cos"
     clipping_value=None
     weight_decay=0.01
-    model_save_path = "models/learning rate 1e-5"
+    model_save_path = "models/lr1e-4_Cos_divLearnExpUnifSigmoid"
     # model_save_path = "models/del"
     num_save_steps = 10_000
     

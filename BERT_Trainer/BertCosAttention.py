@@ -3,7 +3,37 @@ import math
 import torch
 from torch import nn
 import os
+import wandb
 
+
+
+
+
+import torch
+from torch.autograd import Function
+
+class SoftenedReLUFunction(Function):
+    @staticmethod
+    def forward(ctx, input, leak_slope=1e-7):
+        ctx.save_for_backward(input)
+        ctx.leak_slope = leak_slope
+        return input.clamp(min=0)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        input, = ctx.saved_tensors
+        grad_input = grad_output.clone()
+        grad_input[input < 0] *= ctx.leak_slope
+        return grad_input, None
+    
+    
+class SoftenedReLU(torch.nn.Module):
+    def __init__(self, leak_slope=1e-7):
+        super(SoftenedReLU, self).__init__()
+        self.leak_slope = leak_slope
+
+    def forward(self, input):
+        return SoftenedReLUFunction.apply(input, self.leak_slope)
 
 
 
@@ -27,6 +57,18 @@ class BertCosAttention(nn.Module):
         self.query = nn.Linear(config.hidden_size, self.all_head_size)
         self.key = nn.Linear(config.hidden_size, self.all_head_size)
         self.value = nn.Linear(config.hidden_size, self.all_head_size)
+        
+        # Learnable constant for each head
+        # self.relu_constant = nn.Parameter(torch.zeros(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device))
+        
+        # Learnable constant for each head for norm
+        # self.norm_const = nn.Parameter(torch.ones(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device))
+        # init between 0.1 and 0.9
+        # self.norm_const = nn.Parameter(torch.rand(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device)*0.8+0.1)
+        # Between -1 and 1
+        self.norm_const = nn.Parameter(torch.rand(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device)*2-1)
+        
+        # self.relu = SoftenedReLU()
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(
@@ -105,25 +147,24 @@ class BertCosAttention(nn.Module):
         query_layer = torch.nn.functional.normalize(query_layer, dim=-1, p=2)
         key_layer = torch.nn.functional.normalize(key_layer, dim=-1, p=2)
         
+        # Scale the values
+        value_layer = value_layer / attention_mask.sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()
+        
         # If dimensionality is larger than sequence length, then we are doing
         # S^2 by (QK^T)V
         if query_layer.shape[-1] > query_layer.shape[-2]:
-            # attention_probs = torch.matmul(
-            #     query_layer,
-            #     key_layer.transpose(-1, -2)
-            # )
+            # attention_probs = ((torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer))) / (attention_mask.sum(-1).unsqueeze(-1))**self.norm_const
             
             # # Matplotlib attention heatmap
             # import matplotlib.pyplot as plt
             # probs = attention_probs[0].detach().cpu().numpy()
             # for head in range(probs.shape[0]):
             #     # Shape is (num_heads, seq_len, seq_len)
-            #     plt.imshow(probs[head])
+            #     plt.imshow(probs[head], vmin=-1, vmax=1)
             #     plt.show()
             #     if not os.path.exists("imgs"):
             #         os.makedirs("imgs")
             #     plt.savefig(f"imgs/attention{head}.png")
-            
             # context_layer = torch.matmul(attention_probs, value_layer)
             
             
@@ -157,6 +198,46 @@ class BertCosAttention(nn.Module):
             
             # More effiicent implementation:
             context_layer = torch.einsum("nhsw,nhwe->nhse", query_layer, torch.einsum("nhse,nhsw->nhew", key_layer, value_layer))
+        
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", self.dropout(torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer).relu()), value_layer)
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", torch.nn.functional.gelu(torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer)), value_layer)
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", torch.nn.functional.silu(torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer).relu()), value_layer)
+        # self.relu_constant.data = torch.clamp(self.relu_constant.data, -1, 1)
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", torch.nn.functional.relu(torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer)+self.relu_constant), value_layer)
+        
+        
+        # # Divide by sequence length
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", 
+        #                              ((torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer))
+        #                                 / attention_mask.sum(-1).unsqueeze(-1)**0.5), 
+        #                 value_layer)
+        # attention_probs = ((torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer)) / (attention_mask.sum(-1).unsqueeze(-1))**0.5)
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", attention_probs, value_layer)
+        
+        # # Divide by total sequence length
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", 
+        #                              (torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer))
+        #                                 / 512, 
+        #                 value_layer)
+        
+        # # Divide by learnable constant
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", 
+        #                              (torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer))
+        #                                 / self.norm_const, 
+        #                 value_layer)
+        
+        # # Exp by learnable constant
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", 
+        #                              ((torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer))
+        #                                 / attention_mask.sum(-1).unsqueeze(-1)**self.norm_const), 
+        #                 value_layer)
+        
+        # # Divide by sum
+        # attention_probs = torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer)
+        # context_layer = torch.einsum("nhsq,nhqw->nhsw", 
+        #                                 (attention_probs
+        #                                     / (attention_probs.sum(-1).unsqueeze(-1)+1e-7)) * attention_mask.transpose(-1, -2),
+        #                 value_layer)
             
         attention_probs = None
 
