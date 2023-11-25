@@ -44,8 +44,24 @@ The best part is this method has linearity:
 
 (N(Q)@N(K^T))/s @ V = N(Q)@N(K^T)) @ V/s = N(Q) @ (N(K^T) @ V/s)
 
-### More Improvements
-Slight improvments can be made by changing the exponent of the dividend, that is of the sequence length scaling. Using a square root seems to work better, but also leads to loss explosion at a point.
+### Fixing Magnitude Issues 2
+The old method works well where the attention scores are divided by the sequence length, however this leads to a problem. If the cosine similarity scores of the sequence are < 1, then the outputs will slowely converge to 0 as the number of layers increases. Alternatively, if the scroes of the sequence are > 1, then the outputs will quickly diverge and go to infinity. The current situation is much better than going to infinity, however it is far from optimal.
+
+How about we take an exponential of the sequence length? So instead the sequence is divided by the square root of the sequence length. This works and the model does slightly better, however this diverges at a point, likely as the model has magnitudes > 1.
+
+How about allowing the model to learn an exponential of the sequence length. In this case, the attention scoes will be divided by the sequence length to the power of a learnable constant (one for each head). This seems to work quite well, however rarely this method also dies and goes to infinity. FOrcing the model to have a value between 0 and 1 via sigmoid helps, but still runs into divergence problems.
+
+How about just normalizing the values. So the output becomes: O = N(Q) @ N(K^T) @ N(V). Maybe this will helps. It's kind of like just messing around the unit sphere though.
+
+How about adding a penalty to the loss? For example we could:
+1. Penalize the output of the attention mechanism for have output tokens with high magnitude from the values. Note that instead of doing this for the input, we do this with the values. The Q and K are just going to be between -1 and 1, so that magnitude doesn't matter. The magnitude of the values on the other hand should be close to the magnitude of the output so the model doesn't blow up. This means token 0 in the values should have a magnitude close to token 0 in the output
+2. A slightly less extreme penalty is that the average magnitude of the values should be close to the average magnitude of the output.
+- In the end, penalty wouldn't covnerge at all :(
+
+What worked best?
+- Although dividing by a constant worked most of the time, it failed sometimes. Normalizing the values worked for all tests so far.
+
+
 
 ## GPT
 

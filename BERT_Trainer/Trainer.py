@@ -101,7 +101,12 @@ class Trainer():
             weight_decay=0.01,
             model_save_path=None,
             num_save_steps=10_000,
+            keep_dataset_in_mem=False,
+            load_checkpoint=False,
+            checkpoint_path=None,
         ):
+        self.learning_rate = learning_rate
+        self.warmup_steps = warmup_steps
         self.num_steps = num_steps
         self.wandb_name = wandb_name
         self.log_steps = log_steps
@@ -111,6 +116,10 @@ class Trainer():
         self.weight_decay = weight_decay
         self.model_save_path = model_save_path.replace(" ", "_") if model_save_path is not None else None
         self.num_save_steps = num_save_steps
+        self.keep_dataset_in_mem = keep_dataset_in_mem
+        
+        
+        
         
         
         # Divide the batch size by the number of GPUs
@@ -121,74 +130,89 @@ class Trainer():
         self.batch_size = batch_size
         
         
-        # Tokenizer
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained("bert-base-cased", use_fast=False, cache_dir="BERT_Trainer/BERT_Model")
-        # BERT Model. We are training it from scratch
-        self.model = transformers.BertForPreTraining(config=transformers.BertConfig.from_dict({
-            "architectures": [
-                "BertForMaskedLM"
-            ],
-            "attention_probs_dropout_prob": 0.1,
-            "gradient_checkpointing": False,
-            "hidden_act": "gelu",
-            "hidden_dropout_prob": 0.1,
-            "hidden_size": 768,
-            "initializer_range": 0.02,
-            "intermediate_size": 3072,
-            "layer_norm_eps": 1e-12,
-            "max_position_embeddings": 512,
-            "model_type": "bert",
-            "num_attention_heads": 12,
-            "num_hidden_layers": 12,
-            "pad_token_id": 0,
-            "position_embedding_type": "absolute",
-            "type_vocab_size": 2,
-            "use_cache": True,
-            "vocab_size": 28996
-        }))
         
-        
-        
-        
-        # Replace all self attention layers (BertSelfAttention) with the cosine attention layer (BertCosAttention)
-        if attention_type == "cos":
-            for layer in self.model.bert.encoder.layer:
-                old = layer.attention.self
-                layer.attention.self = BertCosAttention(self.model.config).to(layer.attention.self.query.weight.device)
-                del old
-        
-        
-        
-        
-        # Put the model on the desired device
-        if dev != "cpu":
-            # Initialize the environment
-            init_distributed()
+        # Load in a checkpoint
+        if load_checkpoint:
+            self.load_checkpoint(checkpoint_path)
             
-            try:
-                local_rank = int(os.environ['LOCAL_RANK'])
-            except KeyError:
-                local_rank = 0
-                print("LOCAL_RANK not found in environment variables. Defaulting to 0.")
+        # Otherwise initialize from scratch
+        else:
+            # Tokenizer
+            self.tokenizer = transformers.AutoTokenizer.from_pretrained("bert-base-cased", use_fast=False, cache_dir="BERT_Trainer/BERT_Model")
+            # BERT Model. We are training it from scratch
+            self.model = transformers.BertForPreTraining(config=transformers.BertConfig.from_dict({
+                "architectures": [
+                    "BertForMaskedLM"
+                ],
+                "attention_probs_dropout_prob": 0.1,
+                "gradient_checkpointing": False,
+                "hidden_act": "gelu",
+                "hidden_dropout_prob": 0.1,
+                "hidden_size": 768,
+                "initializer_range": 0.02,
+                "intermediate_size": 3072,
+                "layer_norm_eps": 1e-12,
+                "max_position_embeddings": 512,
+                "model_type": "bert",
+                "num_attention_heads": 12,
+                "num_hidden_layers": 12,
+                "pad_token_id": 0,
+                "position_embedding_type": "absolute",
+                "type_vocab_size": 2,
+                "use_cache": True,
+                "vocab_size": 28996
+            }))
+            
+            
+            # Replace all self attention layers (BertSelfAttention) with the cosine attention layer (BertCosAttention)
+            if attention_type == "cos":
+                for layer in self.model.bert.encoder.layer:
+                    old = layer.attention.self
+                    layer.attention.self = BertCosAttention(self.model.config).to(layer.attention.self.query.weight.device)
+                    del old
+                    
+                    
+                    
+            # Add attention type to the config
+            self.attention_type = attention_type
+            
+            
+            
+            
+            # Put the model on the desired device
+            if dev != "cpu":
+                # Initialize the environment
+                init_distributed()
+                
+                try:
+                    local_rank = int(os.environ['LOCAL_RANK'])
+                except KeyError:
+                    local_rank = 0
+                    print("LOCAL_RANK not found in environment variables. Defaulting to 0.")
 
-            self.model = DDP(self.model.cuda(), device_ids=[local_rank], find_unused_parameters=False)
-        else:
-            self.model = self.model.cpu()
-        
-        
-        
-        # Optimizer
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
-        
-        # LR Scheduler
-        self.scheduler = get_scheduler(self.optimizer, warmup_steps=warmup_steps, total_steps=self.num_steps)
-        
-        
-        # Base model reference for DDP
-        if self.dev == "cpu":
-            self.model_ref = self.model
-        else:
-            self.model_ref = self.model.module
+                self.model = DDP(self.model.cuda(), device_ids=[local_rank], find_unused_parameters=False)
+            else:
+                self.model = self.model.cpu()
+            
+            
+            
+            # Optimizer
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
+            
+            # LR Scheduler
+            self.scheduler = get_scheduler(self.optimizer, warmup_steps=warmup_steps, total_steps=self.num_steps)
+            
+            # Step starts at 0
+            self.step_ckpt = 0
+            
+            # Wandb id is None
+            self.wandb_id = None
+            
+            # Base model reference for DDP
+            if self.dev == "cpu":
+                self.model_ref = self.model
+            else:
+                self.model_ref = self.model.module
         
         
         
@@ -321,7 +345,7 @@ class Trainer():
         # Load in datasets
         if not os.path.exists(cache_path):
             os.makedirs(cache_path)
-        self.tokenized_dataset = datasets.load_dataset("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", cache_dir=cache_path, num_proc=16)["train"]
+        self.tokenized_dataset = datasets.load_dataset("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", cache_dir=cache_path, num_proc=16, keep_in_memory=self.keep_dataset_in_mem)["train"]
         
         # Load dummy data
         # tokenized_dataset = datasets.load_from_disk("BERT_Trainer/data_cache/dummy_dataset")
@@ -330,7 +354,7 @@ class Trainer():
         self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids"])
         
         # PyTorch random sampler
-        random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=self.num_steps*self.batch_size)
+        random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=(self.num_steps-self.step_ckpt)*self.batch_size)
         
         # PyTorch data loader
         data_loader = torch.utils.data.DataLoader(
@@ -339,7 +363,7 @@ class Trainer():
             batch_size=self.batch_size, 
             collate_fn=lambda x: x,
             
-            num_workers=2,
+            num_workers=10,
             prefetch_factor=10,
             persistent_workers=True,
         )
@@ -368,11 +392,14 @@ class Trainer():
                 name=self.wandb_name,
                 notes=None, # May add notes later
                 
-                # # Resume training if checkpoint exists
-                # resume="must" if wandb_id is not None else None,
-                # id=wandb_id,
+                # Resume training if checkpoint exists
+                resume="must" if self.wandb_id is not None else None,
+                id=self.wandb_id,
             )
             wandb.watch(self.model, log_freq=self.log_steps)
+            
+            # Save wandb run id
+            self.wandb_id = wandb.run.id
         
         # Automatic mixed precision
         if self.use_amp:
@@ -381,13 +408,14 @@ class Trainer():
         
         batch_MLM_loss = 0
         batch_NSP_loss = 0
+        #batch_penalty = 0
         batch_loss = 0
         
         loss_fct_MLM = nn.CrossEntropyLoss(ignore_index=-100)
         loss_fct_NSP = nn.CrossEntropyLoss()
         
         # Training loop
-        for step, batch in enumerate(tqdm(data_loader)) if is_main_process() else enumerate(data_loader):
+        for step, batch in enumerate(tqdm(data_loader, initial=self.step_ckpt, total=self.num_steps)) if is_main_process() else enumerate(data_loader):
             # Set the epoch number for the dataloader to seed the
             # randomization of the sampler
             # if self.dev != "cpu":
@@ -406,14 +434,16 @@ class Trainer():
             with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
                 # Get model predictions
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
+                # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
                 outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
                 
                 # Losses for the MLM and NSP
                 MLM_loss = loss_fct_MLM(outputs.prediction_logits.view(-1, self.model_ref.config.vocab_size), labels.view(-1).to(outputs.prediction_logits.device))
                 NSP_loss = loss_fct_NSP(outputs.seq_relationship_logits, sentence_pairs_labels.to(outputs.seq_relationship_logits.device))
+                #penalty = 0.01*torch.stack(outputs.attentions).mean()
                 
                 # Total loss
-                loss = MLM_loss + NSP_loss
+                loss = MLM_loss + NSP_loss# + penalty
                 
             # Backpropagate loss
             if self.use_amp:
@@ -434,7 +464,7 @@ class Trainer():
                 self.optimizer.step()
             
             # Update scheduler
-            self.scheduler.step(step)
+            self.scheduler.step(step+self.step_ckpt)
             
             # Step the gradient scaler
             if self.use_amp:
@@ -448,24 +478,27 @@ class Trainer():
             # Update batch losses
             batch_MLM_loss += MLM_loss.item()/self.log_steps
             batch_NSP_loss += NSP_loss.item()/self.log_steps
+            #batch_penalty = penalty.item()/self.log_steps
             batch_loss += loss.item()/self.log_steps
             
             
             
             
             # Log wandb
-            if step % self.log_steps == 0:
+            if (step+self.step_ckpt) % self.log_steps == 0:
                 if is_main_process():
                     wandb.log({
                         "MLM loss": batch_MLM_loss,
                         "NSP loss": batch_NSP_loss,
+                        #"penalty": batch_penalty,
                         "loss": batch_loss,
                         "lr": self.optimizer.param_groups[0]['lr'],
-                        "step": step,
-                    })
+                    },
+                    step=step+self.step_ckpt)
                 
                 batch_MLM_loss = 0
                 batch_NSP_loss = 0
+                #batch_penalty = 0
                 batch_loss = 0
                 
                 # if is_main_process():
@@ -473,14 +506,14 @@ class Trainer():
                 #         wandb.log({f"attn{i}": wandb.Histogram(torch.norm(outputs.attentions[i], dim=-1).cpu().detach().float().numpy())})
             
             # Break if we have reached the max number of steps
-            if step >= self.num_steps:
+            if (step+self.step_ckpt) >= self.num_steps:
                 break
             
             
             
             
-            if (step+1) % self.num_save_steps == 0:
-                self.save_model()
+            if (step+1+self.step_ckpt) % self.num_save_steps == 0:
+                self.save_model(step+self.step_ckpt)
                 
                 
                 
@@ -489,7 +522,7 @@ class Trainer():
             
             
             
-    def save_model(self):
+    def save_model(self, step):
         if is_main_process():
             # Save the model
             self.model_ref.save_pretrained(self.model_save_path)
@@ -503,6 +536,8 @@ class Trainer():
             
             # Save the config
             torch.save({
+                "learning_rate": self.learning_rate,
+                "warmup_steps": self.warmup_steps,
                 "num_steps": self.num_steps,
                 "wandb_name": self.wandb_name,
                 "log_steps": self.log_steps,
@@ -510,7 +545,85 @@ class Trainer():
                 "dev": self.dev,
                 "clipping_value": self.clipping_value,
                 "weight_decay": self.weight_decay,
+                "attention_type": self.attention_type,
+                "step_ckpt": step,
+                "wandb_id": self.wandb_id,
             }, os.path.join(self.model_save_path, "config.pt"))
             
             # Save the tokenizer
             torch.save(self.tokenizer, os.path.join(self.model_save_path, "tokenizer.pt"))
+            
+            
+            
+    def load_checkpoint(self, checkpoint_path):
+        # Load the model
+        self.model = transformers.BertForPreTraining.from_pretrained(checkpoint_path.replace(" ", "_"))
+        
+        # Load the config
+        config = torch.load(os.path.join(checkpoint_path, "config.pt"))
+        self.learning_rate = config["learning_rate"]
+        self.warmup_steps = config["warmup_steps"]
+        self.num_steps = config["num_steps"]
+        self.wandb_name = config["wandb_name"]
+        self.log_steps = config["log_steps"]
+        self.use_amp = config["use_amp"]
+        self.dev = config["dev"]
+        self.clipping_value = config["clipping_value"]
+        self.weight_decay = config["weight_decay"]
+        self.step_ckpt = config["step_ckpt"]
+        self.attention_type = config["attention_type"]
+        self.wandb_id = config["wandb_id"]
+        
+        # Replace all self attention layers (BertSelfAttention) with the cosine attention layer (BertCosAttention)
+        if self.attention_type == "cos":
+            for layer in self.model.bert.encoder.layer:
+                old = layer.attention.self
+                layer.attention.self = BertCosAttention(self.model.config).to(layer.attention.self.query.weight.device)
+                
+                # Copy weights
+                layer.attention.self.query.weight.data = old.query.weight.data
+                layer.attention.self.query.bias.data = old.query.bias.data
+                layer.attention.self.key.weight.data = old.key.weight.data
+                layer.attention.self.key.bias.data = old.key.bias.data
+                layer.attention.self.value.weight.data = old.value.weight.data
+                layer.attention.self.value.bias.data = old.value.bias.data
+                
+                del old
+                
+            # Load extra params if needed
+            self.model.load_state_dict(torch.load(checkpoint_path.replace(" ", "_") + "/pytorch_model.bin", map_location=self.model.bert.encoder.layer[0].attention.self.query.weight.device))
+            
+            # Clear cache
+            torch.cuda.empty_cache()
+        
+        # Load the tokenizer
+        self.tokenizer = torch.load(os.path.join(checkpoint_path, "tokenizer.pt"))
+        
+        # Put the model on the desired device
+        if self.dev != "cpu":
+            # Initialize the environment
+            init_distributed()
+            
+            try:
+                local_rank = int(os.environ['LOCAL_RANK'])
+            except KeyError:
+                local_rank = 0
+                print("LOCAL_RANK not found in environment variables. Defaulting to 0.")
+
+            self.model = DDP(self.model.cuda(), device_ids=[local_rank], find_unused_parameters=False)
+        else:
+            self.model = self.model.cpu()
+            
+        # Base model reference for DDP
+        if self.dev == "cpu":
+            self.model_ref = self.model
+        else:
+            self.model_ref = self.model.module
+            
+        # Load the optimizer
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
+        self.optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, "optimizer.pt"), map_location=self.model_ref.bert.encoder.layer[0].attention.self.query.weight.device))
+        
+        # Load the scheduler
+        self.scheduler = get_scheduler(self.optimizer, warmup_steps=self.warmup_steps, total_steps=self.num_steps)
+        self.scheduler.load_state_dict(torch.load(os.path.join(checkpoint_path, "scheduler.pt"), map_location=self.model_ref.bert.encoder.layer[0].attention.self.query.weight.device))

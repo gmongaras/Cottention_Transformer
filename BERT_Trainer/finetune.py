@@ -29,7 +29,7 @@ def main():
     keep_dataset_in_mem = False
     
     # Load in a checkpoint
-    load_checkpoint = False
+    load_checkpoint = True
     checkpoint_path = "models/lr1e-4_Cos_3WayNorm/"
     
     trainer = Trainer(

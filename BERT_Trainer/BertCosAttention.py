@@ -66,7 +66,7 @@ class BertCosAttention(nn.Module):
         # init between 0.1 and 0.9
         # self.norm_const = nn.Parameter(torch.rand(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device)*0.8+0.1)
         # Between -1 and 1
-        self.norm_const = nn.Parameter(torch.rand(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device)*2-1)
+        # self.norm_const = nn.Parameter(torch.rand(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device)*2-1)
         
         # self.relu = SoftenedReLU()
 
@@ -148,12 +148,14 @@ class BertCosAttention(nn.Module):
         key_layer = torch.nn.functional.normalize(key_layer, dim=-1, p=2)
         
         # Scale the values
-        value_layer = value_layer / attention_mask.sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()
+        # value_layer = value_layer / attention_mask.sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()
+        value_layer = torch.nn.functional.normalize(value_layer, dim=-1, p=2)
         
         # If dimensionality is larger than sequence length, then we are doing
         # S^2 by (QK^T)V
         if query_layer.shape[-1] > query_layer.shape[-2]:
-            # attention_probs = ((torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer))) / (attention_mask.sum(-1).unsqueeze(-1))**self.norm_const
+            # # attention_probs = ((torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer))) / (attention_mask.sum(-1).unsqueeze(-1))**self.norm_const.sigmoid()
+            # attention_probs = ((torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer)))
             
             # # Matplotlib attention heatmap
             # import matplotlib.pyplot as plt
@@ -238,8 +240,16 @@ class BertCosAttention(nn.Module):
         #                                 (attention_probs
         #                                     / (attention_probs.sum(-1).unsqueeze(-1)+1e-7)) * attention_mask.transpose(-1, -2),
         #                 value_layer)
-            
+         
         attention_probs = None
+            
+        # attention_probs = (((((value_layer**2).sum(-1)**0.5)-((context_layer**2).sum(-1)**0.5))**2).sum(-1)**0.5).mean()
+        
+        # penalize that the sequence magnitudes are different
+        #attention_probs = ((((value_layer**2).sum(-1)**0.5).mean(-1)-((context_layer**2).sum(-1)**0.5).mean(-1))**2).mean()
+        
+        # penalize that the token magnitudes are different
+        # attention_probs = ((((value_layer**2).sum(-1)**0.5)-((context_layer**2).sum(-1)**0.5))**2).mean()
 
         if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
             raise NotImplementedError
