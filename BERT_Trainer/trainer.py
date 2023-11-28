@@ -17,20 +17,20 @@ def main():
     warmup_steps=10_000
     num_steps=1_000_000
     dev="gpu"
-    wandb_name="lr1e-4_Cos_3WayNorm"
+    wandb_name="lr1e-4_SM"
     log_steps=10
     use_amp=True
-    attention_type="cos"
+    attention_type="soft"
     clipping_value=None
     weight_decay=0.01
-    model_save_path = "models/lr1e-4_Cos_3WayNorm"
+    model_save_path = "models/lr1e-4_SM"
     # model_save_path = "models/del"
     num_save_steps = 10_000
     keep_dataset_in_mem = False
     
     # Load in a checkpoint
-    load_checkpoint = False
-    checkpoint_path = "models/lr1e-4_Cos_3WayNorm/"
+    load_checkpoint = True
+    checkpoint_path = "models/lr1e-4_SM/"
     
     trainer = Trainer(
         batch_size=batch_size,

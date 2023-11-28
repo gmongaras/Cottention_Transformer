@@ -55,7 +55,8 @@ def infer():
             
     # inference
     # sentence = "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language[SEP]Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful"
-    sentence = r"""He noted that the style was both a "physical workout", the core muscles constantly working to keep the body balanced on the board, and "an exercise in mental focus"[SEP]When he lost focus as he had often done on his yoga mat, his board "penaliz[ed him] for letting [his] mind wander" and, like what the instructor had described as "only about 10% of her students", he fell into the "chilly" water"""
+    # sentence = r"""He noted that the style was both a "physical workout", the core muscles constantly working to keep the body balanced on the board, and "an exercise in mental focus"[SEP]When he lost focus as he had often done on his yoga mat, his board "penaliz[ed him] for letting [his] mind wander" and, like what the instructor had described as "only about 10% of her students", he fell into the "chilly" water"""
+    sentence = r"The Neko maid [MASK]"
     
     # Tokenize the sentence
     inputs = tokenizer(sentence, return_tensors="pt")
@@ -63,7 +64,7 @@ def infer():
     
     # Get the masked token
     # masked_index = torch.where(inputs["input_ids"][0] == tokenizer.mask_token_id)[0]
-    masked_index = -3
+    masked_index = -2
     inputs["input_ids"][0][masked_index] = torch.tensor(tokenizer.mask_token_id)
     
     encoded = tokenizer.decode(inputs["input_ids"][0])

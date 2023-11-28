@@ -22,12 +22,19 @@ max_length = tokenizer.model_max_length
 
 
 def clean_text(line):
+    # Trim whitespace
+    line = line.strip()
+    
     # Remove unnecessary characters
     for char_ in ['``', "''", '`` ', "'' "]:
         line = line.replace(char_, '')
         
     # Trim whitespace
     line = line.strip()
+    
+    # Line should start with alphanumeric character or perenthesis. Remove characters
+    # until the first alphanumeric character or perenthesis
+    line = re.sub(r'^[^a-zA-Z0-9\(\)]*', '', line).strip()
     
     return line
 
@@ -36,10 +43,11 @@ def clean_text(line):
 def get_pairs(examples):
     # Breakup line into sentences by splitting on periods, but not decimal points
     # and on question marks and exclamation points
-    sentences = [clean_text(i) for i in re.split(r'(?<!\d)(?<!\b[A-Z])\.(?!\d)|\?|!', examples)]
+    sentences = [clean_text(i) for i in re.split(r'(?<=[.!?])(?<!\d\.\d)(?<!\b[A-Z]\.)(?<!\b(?:e\.g|i\.e|etc|Gen|Maj)\.)(?<!\b(?:No|Lt|vs)\.)(?<!\b(?:Brig|Gens)\.)(?<!\b(?:d)\.)(?=\s|$)(?<!\.\.\.)|\n\n', examples)]
+    # sentences = [clean_text(i) for i in re.split(r'(?<!\d)(?<!\b[A-Z])\.(?!\d)|\?|!', examples)]
     
-    # Remove sentences longer than the max length and longer than 10
-    sentences = [i for i in sentences if len(i) <= max_length//2 and len(i) > 10]
+    # Remove sentences longer than the max length and shorter than 3 words
+    sentences = [i for i in sentences if len(i.split(" ")) <= max_length//2 and len(i.split(" ")) > 3]
     
     # Add sentence pairs separated by [SEP]
     sentence_pairs = []

@@ -12,25 +12,26 @@ except ModuleNotFoundError:
 
 def main():
     # Create the model trainer
-    batch_size=256
-    learning_rate=1e-4
+    batch_size=32
+    learning_rate=3e-5
     warmup_steps=10_000
     num_steps=1_000_000
     dev="gpu"
-    wandb_name="lr1e-4_Cos_3WayNorm"
+    wandb_name="Cos_Finetune"
     log_steps=10
     use_amp=True
     attention_type="cos"
     clipping_value=None
     weight_decay=0.01
-    model_save_path = "models/lr1e-4_Cos_3WayNorm"
+    model_save_path = "models/Cos_Finetune"
     # model_save_path = "models/del"
     num_save_steps = 10_000
     keep_dataset_in_mem = False
+    finetune_task = "cola"
     
     # Load in a checkpoint
-    load_checkpoint = True
     checkpoint_path = "models/lr1e-4_Cos_3WayNorm/"
+    # checkpoint_path = "models/lr1e-4_SM/"
     
     trainer = Trainer(
         batch_size=batch_size,
@@ -47,12 +48,14 @@ def main():
         model_save_path=model_save_path,
         num_save_steps=num_save_steps,
         keep_dataset_in_mem=keep_dataset_in_mem,
-        load_checkpoint=load_checkpoint,
+        load_checkpoint=True,
         checkpoint_path=checkpoint_path,
+        finetune=True,
+        finetune_task=finetune_task,
     )
     
     # Train model
-    trainer()
+    trainer.finetune()
 
 
 
