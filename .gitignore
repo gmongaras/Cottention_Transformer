@@ -10,6 +10,7 @@ BERT_Trainer/*.sh
 BERT_Trainer/*.out
 BERT_Trainer/wikipedia_dataset/
 BERT_Trainer/bookcorpus_dataset/
+BERT_Trainer/glue_dataset/
 
 
 

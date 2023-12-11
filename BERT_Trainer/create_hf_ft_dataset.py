@@ -74,6 +74,10 @@ def main():
         for split in ["train", "validation", "test"]:
             print(f"Dataset: {name}, Split: {split}")
             
+            # Skip MNLI if the train data is seen a second time
+            if "mnli" in dataset["train"]["dataset_name"] and name == "mnli" and split == "train":
+                continue
+            
             # Save sentence depending on the type
             for example in tqdm.tqdm(glue_data[split + "_" + mnli_type if name=="mnli" and split != "train" else split], total=len(glue_data[split + "_" + mnli_type if name=="mnli" and split != "train" else split])):
                 if type_ == "single":
@@ -90,7 +94,10 @@ def main():
                 
                 dataset[split]["sentences"].append(sentence)
                 dataset[split]["labels"].append(example["label"])
-                dataset[split]["dataset_name"].append(name)
+                if (split == "validation" or split == "test") and name == "mnli":
+                    dataset[split]["dataset_name"].append(name + "_" + mnli_type + "_" + split)
+                else:
+                    dataset[split]["dataset_name"].append(name)
 
 
 

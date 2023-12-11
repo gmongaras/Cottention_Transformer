@@ -36,6 +36,9 @@ def main():
     if not os.path.exists(tok_cache_path):
         os.makedirs(tok_cache_path)
     wiki_tokenized_dataset = wiki_tokenized_dataset.map(tokenizer, batched=True, batch_size=1000, num_proc=16, input_columns=["text"], remove_columns=["text"], cache_file_name=tok_cache_path + "/tokenized_dataset.arrow")
+    
+    # Remove sentences longer than the max length and shorter than 3 words
+    wiki_tokenized_dataset = wiki_tokenized_dataset.filter(lambda x: len(x["input_ids"]) <= max_length)
 
     # Push to hub
     wiki_tokenized_dataset.push_to_hub("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", token=TOKEN)

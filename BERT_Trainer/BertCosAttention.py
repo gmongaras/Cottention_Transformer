@@ -68,8 +68,10 @@ class BertCosAttention(nn.Module):
         # Between -1 and 1
         # self.norm_const = nn.Parameter(torch.rand(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device)*2-1)
         
+        # self.norm = nn.LayerNorm(self.all_head_size)
+        
         # self.relu = SoftenedReLU()
-
+        
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(
             config, "position_embedding_type", "absolute"
@@ -148,8 +150,18 @@ class BertCosAttention(nn.Module):
         key_layer = torch.nn.functional.normalize(key_layer, dim=-1, p=2)
         
         # Scale the values
-        # value_layer = value_layer / attention_mask.sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()
-        value_layer = torch.nn.functional.normalize(value_layer, dim=-1, p=2)
+        value_layer = value_layer / attention_mask.sum(-1).unsqueeze(-1)#**self.norm_const.sigmoid()
+        # value_layer = torch.nn.functional.normalize(value_layer, dim=-1, p=2)
+        
+        
+        # # Project the query, key, and value layers
+        # query_layer = (self.q_proj_global(query_layer) * attention_mask.transpose(-1, -2)) + torch.nn.functional.normalize(query_layer, dim=-1, p=2)
+        # key_layer = (self.k_proj_global(key_layer) * attention_mask.transpose(-1, -2)) + torch.nn.functional.normalize(key_layer, dim=-1, p=2)
+        # value_layer = (self.v_proj_global(value_layer) * attention_mask.transpose(-1, -2))
+        
+        # query_layer = torch.nn.functional.normalize(query_layer, dim=-1, p=2)
+        # key_layer = torch.nn.functional.normalize(key_layer, dim=-1, p=2)
+        
         
         # If dimensionality is larger than sequence length, then we are doing
         # S^2 by (QK^T)V
@@ -179,6 +191,12 @@ class BertCosAttention(nn.Module):
             
             # More effiicent implementation:
             context_layer = torch.einsum("nhsq,nhqw->nhsw", torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer), value_layer)
+            # attn = torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer)
+            # for blk in self.a_proj_global:
+            #     attn = blk(attn) * attention_mask.transpose(-1, -2)
+            # context_layer = torch.einsum("nhsq,nhqw->nhsw", 
+            #                              attn,
+            #                              value_layer)
             
         # Otherwise, we are doing d^2 Q(K^TV)
         else:
@@ -266,6 +284,15 @@ class BertCosAttention(nn.Module):
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
         context_layer = context_layer.view(new_context_layer_shape)
+        
+
+
+        # context_layer = self.norm(context_layer)
+        # attention_probs = (hidden_states*attention_mask.transpose(-1, -2).squeeze(1), context_layer)
+
+
+
+
 
         outputs = (context_layer, attention_probs) if output_attentions else (context_layer,)
 

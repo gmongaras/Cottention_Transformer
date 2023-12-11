@@ -22,7 +22,8 @@ def infer():
     # Path to the model
     # model_path = "models/SM AdamW"
     # attention_type = "soft"
-    model_path = "models/lr1e-4_Cos_3WayNorm"
+    # model_path = "models/redo_lr1e-4_SM"
+    model_path = "models/redo_lr1e-4_Cos_Div"
     attention_type = "cos"
     
     
@@ -54,9 +55,14 @@ def infer():
     tokenizer = transformers.BertTokenizerFast.from_pretrained(model_path.replace(" ", "_"))
             
     # inference
-    # sentence = "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language[SEP]Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful"
+    sentence = "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language[SEP]Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful"
     # sentence = r"""He noted that the style was both a "physical workout", the core muscles constantly working to keep the body balanced on the board, and "an exercise in mental focus"[SEP]When he lost focus as he had often done on his yoga mat, his board "penaliz[ed him] for letting [his] mind wander" and, like what the instructor had described as "only about 10% of her students", he fell into the "chilly" water"""
-    sentence = r"The Neko maid [MASK]"
+    # sentence = r"The Neko maid [MASK]."
+    
+    # sentence = """
+    # "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language[SEP]Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful"
+    # """.strip()
+    
     
     # Tokenize the sentence
     inputs = tokenizer(sentence, return_tensors="pt")
@@ -64,7 +70,7 @@ def infer():
     
     # Get the masked token
     # masked_index = torch.where(inputs["input_ids"][0] == tokenizer.mask_token_id)[0]
-    masked_index = -2
+    masked_index = -3
     inputs["input_ids"][0][masked_index] = torch.tensor(tokenizer.mask_token_id)
     
     encoded = tokenizer.decode(inputs["input_ids"][0])

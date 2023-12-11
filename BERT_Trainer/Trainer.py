@@ -196,6 +196,50 @@ class Trainer():
             
             
             
+            # # Add a layer to the model
+            # h = self.model.config.hidden_size // self.model.config.num_attention_heads
+            # self.model.q_proj_global = nn.Sequential(
+            #     nn.ReLU(),
+            #     nn.Linear(h, h*2),
+            #     nn.ReLU(),
+            #     nn.Linear(h*2, h*2),
+            #     nn.ReLU(),
+            #     nn.Linear(h*2, h),
+            # )
+            # self.model.k_proj_global = nn.Sequential(
+            #     nn.ReLU(),
+            #     nn.Linear(h, h*2),
+            #     nn.ReLU(),
+            #     nn.Linear(h*2, h*2),
+            #     nn.ReLU(),
+            #     nn.Linear(h*2, h),
+            # )
+            # self.model.v_proj_global = nn.Sequential(
+            #     nn.ReLU(),
+            #     nn.Linear(h, h*2),
+            #     nn.ReLU(),
+            #     nn.Linear(h*2, h*2),
+            #     nn.ReLU(),
+            #     nn.Linear(h*2, h),
+            # )
+            # self.model.a_proj_global = nn.Sequential(
+            #     nn.Conv2d(self.model.config.num_attention_heads, self.model.config.num_attention_heads*2, (11, 1), stride=(1, 1), padding=(5, 0)),
+            #     nn.ReLU(),
+            #     nn.Conv2d(self.model.config.num_attention_heads*2, self.model.config.num_attention_heads*2, (11, 1), stride=(1, 1), padding=(5, 0)),
+            #     nn.ReLU(),
+            #     nn.Conv2d(self.model.config.num_attention_heads*2, self.model.config.num_attention_heads, (11, 1), stride=(1, 1), padding=(5, 0)),
+            #     nn.ReLU(),
+            # )
+            
+            # Copy layer reference to every attention layer
+            # for layer in self.model.bert.encoder.layer:
+            #     layer.attention.self.q_proj_global = self.model.q_proj_global
+            #     layer.attention.self.k_proj_global = self.model.k_proj_global
+            #     layer.attention.self.v_proj_global = self.model.v_proj_global
+            #     layer.attention.self.a_proj_global = self.model.a_proj_global
+            
+            
+            
             
             # Put the model on the desired device
             if dev != "cpu":
@@ -437,7 +481,7 @@ class Trainer():
         
         batch_MLM_loss = 0
         batch_NSP_loss = 0
-        #batch_penalty = 0
+        # batch_penalty = 0
         batch_loss = 0
         
         loss_fct_MLM = nn.CrossEntropyLoss(ignore_index=-100)
@@ -460,7 +504,7 @@ class Trainer():
             labels = batch["labels"]
             sentence_pairs_labels = batch["sentence_pairs_labels"]
             
-            with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
+            with torch.autocast(device_type='cuda', dtype=torch.float16) if self.use_amp else nullcontext():
                 # Get model predictions
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
@@ -469,10 +513,21 @@ class Trainer():
                 # Losses for the MLM and NSP
                 MLM_loss = loss_fct_MLM(outputs.prediction_logits.view(-1, self.model_ref.config.vocab_size), labels.view(-1).to(outputs.prediction_logits.device))
                 NSP_loss = loss_fct_NSP(outputs.seq_relationship_logits, sentence_pairs_labels.to(outputs.seq_relationship_logits.device))
-                #penalty = 0.01*torch.stack(outputs.attentions).mean()
+                
+                # Penalty: ReLU[(L2(output) - L2(input))]
+                # token level
+                # penalty = torch.stack([
+                #     torch.nn.functional.relu(((out_vals**2).sum(-1)**0.5) - ((in_vals**2).sum(-1)**0.5)).mean()
+                #     for in_vals, out_vals in outputs.attentions
+                # ]).mean() if step % 10 == 0 else torch.tensor(0, dtype=torch.float, device=self.model.device)
+                # sentence level (less strict)
+                # penalty = torch.stack([
+                #     (((out_vals**2).sum(-1)**0.5).mean(-1) - ((in_vals**2).sum(-1)**0.5).mean(-1)).relu().mean()
+                #     for in_vals, out_vals in outputs.attentions
+                # ]).mean()
                 
                 # Total loss
-                loss = MLM_loss + NSP_loss# + penalty
+                loss = MLM_loss + NSP_loss# + 0.01*penalty
                 
             # Backpropagate loss
             if self.use_amp:
@@ -507,7 +562,7 @@ class Trainer():
             # Update batch losses
             batch_MLM_loss += MLM_loss.item()/self.log_steps
             batch_NSP_loss += NSP_loss.item()/self.log_steps
-            #batch_penalty = penalty.item()/self.log_steps
+            # batch_penalty = penalty.item()/self.log_steps
             batch_loss += loss.item()/self.log_steps
             
             
@@ -519,7 +574,7 @@ class Trainer():
                     wandb.log({
                         "MLM loss": batch_MLM_loss,
                         "NSP loss": batch_NSP_loss,
-                        #"penalty": batch_penalty,
+                        # "penalty": batch_penalty,
                         "loss": batch_loss,
                         "lr": self.optimizer.param_groups[0]['lr'],
                     },
@@ -527,7 +582,7 @@ class Trainer():
                 
                 batch_MLM_loss = 0
                 batch_NSP_loss = 0
-                #batch_penalty = 0
+                # batch_penalty = 0
                 batch_loss = 0
                 
                 # if is_main_process():
@@ -610,12 +665,11 @@ class Trainer():
             DataFrame: All groups merged and processed into a single DataFrame.
         """
         processed_groups = []
-        dataset_name_to_num = {dataset['dataset_name'].iloc[0]: i for i, dataset in enumerate(datasets)}
         batch_indices = np.arange(self.batch_size)
 
         for dataset in datasets:
             # Convert 'dataset_name' to numerical
-            dataset['dataset_name'] = dataset_name_to_num[dataset['dataset_name'].iloc[0]]
+            dataset['dataset_name'] = self.dataset_name_to_num[dataset['dataset_name'].iloc[0]]
 
             # Calculate number of batches
             num_batches = int(np.ceil(len(dataset) / self.batch_size))
@@ -632,9 +686,6 @@ class Trainer():
                 # Append the padded batch
                 processed_groups.append(padded_batch)
 
-        # Save the dataset mapping information
-        self.dataset_name_to_num = dataset_name_to_num
-
         return processed_groups
             
             
@@ -649,27 +700,46 @@ class Trainer():
         
         # Subset the dataset and shuffle it
         for dataset_name in self.tokenized_dataset.keys():
-            self.tokenized_dataset[dataset_name] = self.tokenized_dataset[dataset_name].filter(lambda x: x["dataset_name"] == self.finetune_task).shuffle()
+            if self.finetune_task == "mnli" and dataset_name != "train":
+                self.tokenized_dataset[dataset_name] = {
+                    "matched": self.tokenized_dataset[dataset_name].filter(lambda x: x["dataset_name"] == "mnli_matched_validation"),
+                    "mismatched": self.tokenized_dataset[dataset_name].filter(lambda x: x["dataset_name"] == "mnli_mismatched_validation"),
+                }
+            else:
+                self.tokenized_dataset[dataset_name] = self.tokenized_dataset[dataset_name].filter(lambda x: x["dataset_name"] == self.finetune_task).shuffle()
         
         # Convert data to torch
-        self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
+        if self.finetune_task != "mnli":
+            self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
+        else:
+            self.tokenized_dataset["train"].set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
+            self.tokenized_dataset["validation"]["matched"].set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
+            self.tokenized_dataset["validation"]["mismatched"].set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
         
         # Get train and validation datasets
-        train_dataset = self.tokenized_dataset["train"]
-        val_dataset = self.tokenized_dataset["validation"]
-
-        # Convert to pandas
-        train_dataset = train_dataset.to_pandas()
-        val_dataset = val_dataset.to_pandas()
+        train_dataset = [self.tokenized_dataset["train"].to_pandas()]
+        if self.finetune_task == "mnli":
+            val_dataset = {
+                "matched": [self.tokenized_dataset["validation"]["matched"].to_pandas()],
+                "mismatched": [self.tokenized_dataset["validation"]["mismatched"].to_pandas()],
+            }
+        else:
+            val_dataset = [self.tokenized_dataset["validation"].to_pandas()]
         
-        # Group the huggingface datasets by "dataset_name"
-        train_dataset = train_dataset.groupby("dataset_name")
-        val_dataset = val_dataset.groupby("dataset_name")
-        train_dataset = [train_dataset.get_group(x) for x in train_dataset.groups]
-        val_dataset = [val_dataset.get_group(x) for x in val_dataset.groups]
+        # # Group the huggingface datasets by "dataset_name"
+        # train_dataset = train_dataset.groupby("dataset_name")
+        # val_dataset = val_dataset.groupby("dataset_name")
+        # train_dataset = [train_dataset.get_group(x) for x in train_dataset.groups]
+        # val_dataset = [val_dataset.get_group(x) for x in val_dataset.groups]
         
         train_dataset = self.prepare_batches(train_dataset)
-        val_dataset = self.prepare_batches(val_dataset)
+        if self.finetune_task == "mnli":
+            val_dataset = {
+                "matched": self.prepare_batches(val_dataset["matched"]),
+                "mismatched": self.prepare_batches(val_dataset["mismatched"]),
+            }
+        else:
+            val_dataset = self.prepare_batches(val_dataset)
         
         
         
@@ -680,7 +750,7 @@ class Trainer():
         # Initialize wandb run
         if is_main_process():
             wandb.init(
-                project="Cos_BERT",
+                project="Cos_BERT_Finetune",
                 name=self.wandb_name,
                 notes=None, # May add notes later
             )
@@ -696,7 +766,7 @@ class Trainer():
             
             
         # Iterate for three epochs
-        for epoch in range(3):
+        for epoch in range(4):
             batch_loss = 0
             batch_acc = 0
             
@@ -716,13 +786,7 @@ class Trainer():
                     # Get model predictions
                     # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
                     # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
-                    outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_hidden_states=True)
-                    
-                    # Output hidden states
-                    outputs = outputs.hidden_states[-1][:, 0]
-                    
-                    # Linear layer
-                    outputs = self.model_ref.head(outputs)
+                    outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids).logits
                     
                     # MSE loss if stsb
                     if self.num_to_dataset_name[dataset_name] == "stsb":
@@ -767,53 +831,68 @@ class Trainer():
                 # Update batch accuracy
                 if self.num_to_dataset_name[dataset_name] == "stsb":
                     batch_acc += torch.abs(outputs - labels.to(outputs.device)).sum().item()/len(train_dataset)
+                elif self.num_to_dataset_name[dataset_name] == "qqp" or self.num_to_dataset_name[dataset_name] == "mrpc":
+                    # F1 score
+                    TP = ((outputs.argmax(dim=-1) == labels.long().to(outputs.device)) & (labels == 1)).sum().item()
+                    FP = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 1)).sum().item()
+                    FN = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 0)).sum().item()
+                    
+                    batch_acc += TP/(TP + 0.5*(FP+FN))/len(train_dataset) if TP + 0.5*(FP+FN) != 0 else 0
                 else:
-                    batch_acc += (outputs.argmax(dim=-1) == labels.long().to(outputs.device)).sum().item()/len(train_dataset)
+                    batch_acc += ((outputs.argmax(dim=-1) == labels.long().to(outputs.device))).float().mean()/len(train_dataset)
                 
                 
-            
-            
             
             print("Validating...")
             self.model.eval()
-            val_batch_loss = 0
-            val_acc = 0
-            # Validation loop
-            for step, batch in enumerate(tqdm(val_dataset)) if is_main_process() else enumerate(val_dataset):
-                # Get input and labels
-                input_ids = batch["input_ids"].to(self.model.device)
-                attention_mask = batch["attention_mask"].to(self.model.device)
-                token_type_ids = batch["token_type_ids"].to(self.model.device)
-                labels = batch["labels"].to(self.model.device)
-                dataset_name = batch["dataset_name"].cpu().item()
-                
-                with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
-                    # Get model predictions
-                    # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
-                    # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
-                    outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_hidden_states=True)
+            def val_loop(dataset):
+                val_batch_loss = 0
+                val_acc = 0
+                # Validation loop
+                for step, batch in enumerate(tqdm(dataset)) if is_main_process() else enumerate(dataset):
+                    # Get input and labels
+                    input_ids = batch["input_ids"].to(self.model.device)
+                    attention_mask = batch["attention_mask"].to(self.model.device)
+                    token_type_ids = batch["token_type_ids"].to(self.model.device)
+                    labels = batch["labels"].to(self.model.device)
+                    dataset_name = batch["dataset_name"].cpu().item()
                     
-                    # Output hidden states
-                    outputs = outputs.hidden_states[-1][:, 0]
+                    with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
+                        # Get model predictions
+                        # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
+                        # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
+                        outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids).logits
+                        
+                        # MSE loss if stsb
+                        if self.num_to_dataset_name[dataset_name] == "stsb":
+                            loss = torch.nn.MSELoss()(outputs, labels.to(outputs.device))
+                        # Cross entropy loss otherwise
+                        else:
+                            loss = torch.nn.CrossEntropyLoss()(outputs, labels.long().to(outputs.device))
+                        
+                    # Update batch losses
+                    val_batch_loss += loss.item()/len(dataset)
                     
-                    # Linear layer
-                    outputs = self.model_ref.head(outputs)
-                    
-                    # MSE loss if stsb
+                    # Update batch accuracy
                     if self.num_to_dataset_name[dataset_name] == "stsb":
-                        loss = torch.nn.MSELoss()(outputs, labels.to(outputs.device))
-                    # Cross entropy loss otherwise
+                        val_acc += torch.abs(outputs - labels.to(outputs.device)).sum().item()/len(dataset)
+                    elif self.num_to_dataset_name[dataset_name] == "qqp" or self.num_to_dataset_name[dataset_name] == "mrpc":
+                        # F1 score
+                        TP = ((outputs.argmax(dim=-1) == labels.long().to(outputs.device)) & (labels == 1)).sum().item()
+                        FP = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 1)).sum().item()
+                        FN = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 0)).sum().item()
+                        
+                        val_acc += TP/(TP + 0.5*(FP+FN))/len(dataset) if TP + 0.5*(FP+FN) != 0 else 0
                     else:
-                        loss = torch.nn.CrossEntropyLoss()(outputs, labels.long().to(outputs.device))
-                    
-                # Update batch losses
-                val_batch_loss += loss.item()/len(val_dataset)
-                
-                # Update batch accuracy
-                if self.num_to_dataset_name[dataset_name] == "stsb":
-                    val_acc += torch.abs(outputs - labels.to(outputs.device)).sum().item()/len(val_dataset)
-                else:
-                    val_acc += (outputs.argmax(dim=-1) == labels.long().to(outputs.device)).sum().item()/len(val_dataset)
+                        val_acc += (outputs.argmax(dim=-1) == labels.long().to(outputs.device)).float().mean().item()/len(dataset)
+                        
+                return val_batch_loss, val_acc
+                        
+            if self.finetune_task == "mnli":
+                val_loss_matched, val_acc_matched = val_loop(val_dataset["matched"])
+                val_loss_mismatched, val_acc_mismatched = val_loop(val_dataset["mismatched"])
+            else:
+                val_batch_loss, val_acc = val_loop(val_dataset)
                 
             self.model.train()
                 
@@ -822,16 +901,24 @@ class Trainer():
                 
             # Log wandb
             if is_main_process():
-                wandb_args = {
-                    "loss_finetune": batch_loss,
-                    "acc_finetune": batch_acc,
-                    "val_loss_finetune": val_batch_loss,
-                    "val_acc_finetune": val_acc,
-                }
+                if self.finetune_task == "mnli":
+                    wandb_args = {
+                        f"loss_finetune_{self.finetune_task}": batch_loss,
+                        f"acc_finetune_{self.finetune_task}": batch_acc,
+                        f"val_loss_finetune_{self.finetune_task}_matched": val_loss_matched,
+                        f"val_acc_finetune_{self.finetune_task}_matched": val_acc_matched,
+                        f"val_loss_finetune_{self.finetune_task}_mismatched": val_loss_mismatched,
+                        f"val_acc_finetune_{self.finetune_task}_mismatched": val_acc_mismatched,
+                    }
+                else:
+                    wandb_args = {
+                        f"loss_finetune_{self.finetune_task}": batch_loss,
+                        f"acc_finetune_{self.finetune_task}": batch_acc,
+                        f"val_loss_finetune_{self.finetune_task}": val_batch_loss,
+                        f"val_acc_finetune_{self.finetune_task}": val_acc,
+                    }
                 
                 wandb.log(wandb_args)
-            
-            batch_loss = 0
             
             
             
@@ -880,7 +967,8 @@ class Trainer():
             
     def load_checkpoint(self, checkpoint_path):
         # Load the model
-        self.model = transformers.BertForPreTraining.from_pretrained(checkpoint_path.replace(" ", "_"))
+        self.model = transformers.BertForSequenceClassification.from_pretrained(checkpoint_path.replace(" ", "_"))
+        # self.model = transformers.BertForPreTraining.from_pretrained(checkpoint_path.replace(" ", "_"))
         
         # Load the config
         config = torch.load(os.path.join(checkpoint_path, "config.pt"))
@@ -915,7 +1003,7 @@ class Trainer():
                 del old
                 
             # Load extra params if needed
-            self.model.load_state_dict(torch.load(checkpoint_path.replace(" ", "_") + "/pytorch_model.bin", map_location=self.model.bert.encoder.layer[0].attention.self.query.weight.device))
+            self.model.load_state_dict(torch.load(checkpoint_path.replace(" ", "_") + "/pytorch_model.bin", map_location=self.model.bert.encoder.layer[0].attention.self.query.weight.device), strict=False)
             
             # Clear cache
             torch.cuda.empty_cache()
@@ -924,13 +1012,68 @@ class Trainer():
         self.tokenizer = torch.load(os.path.join(checkpoint_path, "tokenizer.pt"))
         
         
-        # Extra params for finetuning
+        # # Extra params for finetuning
+        # if self.finetune_:
+        #     # Freeze the MLM and NSP heads
+        #     for param in self.model.cls.parameters():
+        #         param.requires_grad = False                
+        
+        
+        # New optimizer if finetuning
         if self.finetune_:
-            # Freeze the MLM and NSP heads
-            for param in self.model.cls.parameters():
-                param.requires_grad = False
-        
-        
+            # Dataset to number mapping
+            self.dataset_name_to_num = {
+                "cola": 0,
+                "mnli": 1,
+                "mnli_matched_validation": 1,
+                "mnli_mismatched_validation": 1,
+                "mrpc": 2,
+                "qnli": 3,
+                "qqp": 4,
+                "rte": 5,
+                "sst2": 6,
+                "stsb": 7,
+                "wnli": 8,
+            }
+            self.num_to_dataset_name = {v: k for k, v in self.dataset_name_to_num.items()}
+            
+            # Assert that the task is valid
+            assert self.finetune_task in self.dataset_name_to_num, f"Invalid finetune task {self.finetune_task}"
+            
+            # Heads for finetuning tasks
+            if self.finetune_task == "cola":
+                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "mnli":
+                self.model.classifier = nn.Linear(self.model.config.hidden_size, 3, device=self.model.device)
+            elif self.finetune_task == "mrpc":
+                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "qnli":
+                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "qqp":
+                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "rte":
+                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "sst2":
+                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "stsb":
+                self.model.classifier = nn.Linear(self.model.config.hidden_size, 1, device=self.model.device)
+            elif self.finetune_task == "wnli":
+                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
+            
+            # Initialize optimizer
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
+            
+        # Load checkpoint for optimizer if not finetuning
+        else:
+            # Load the optimizer
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
+            self.optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, "optimizer.pt"), map_location=self.model_ref.bert.encoder.layer[0].attention.self.query.weight.device))
+            
+            # Load the scheduler
+            self.scheduler = get_scheduler(self.optimizer, warmup_steps=self.warmup_steps, total_steps=self.num_steps)
+            self.scheduler.load_state_dict(torch.load(os.path.join(checkpoint_path, "scheduler.pt"), map_location=self.model_ref.bert.encoder.layer[0].attention.self.query.weight.device))
+            
+            
         # Put the model on the desired device
         if self.dev != "cpu":
             if self.finetune_:
@@ -953,56 +1096,3 @@ class Trainer():
             self.model = self.model.cpu()
             
             self.model_ref = self.model
-        
-        
-        # New optimizer if finetuning
-        if self.finetune_:
-            # Dataset to number mapping
-            self.dataset_name_to_num = {
-                "cola": 0,
-                "mnli": 1,
-                "mrpc": 2,
-                "qnli": 3,
-                "qqp": 4,
-                "rte": 5,
-                "sst2": 6,
-                "stsb": 7,
-                "wnli": 8,
-            }
-            self.num_to_dataset_name = {v: k for k, v in self.dataset_name_to_num.items()}
-            
-            # Assert that the task is valid
-            assert self.finetune_task in self.dataset_name_to_num, f"Invalid finetune task {self.finetune_task}"
-            
-            # Heads for finetuning tasks
-            if self.finetune_task == "cola":
-                self.model.head = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "mnli":
-                self.model.head = nn.Linear(self.model.config.hidden_size, 3, device=self.model.device)
-            elif self.finetune_task == "mrpc":
-                self.model.head = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "qnli":
-                self.model.head = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "qqp":
-                self.model.head = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "rte":
-                self.model.head = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "sst2":
-                self.model.head = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "stsb":
-                self.model.head = nn.Linear(self.model.config.hidden_size, 1, device=self.model.device)
-            elif self.finetune_task == "wnli":
-                self.model.head = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            
-            # Initialize optimizer
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
-            
-        # Load checkpoint for optimizer if not finetuning
-        else:
-            # Load the optimizer
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
-            self.optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, "optimizer.pt"), map_location=self.model_ref.bert.encoder.layer[0].attention.self.query.weight.device))
-            
-            # Load the scheduler
-            self.scheduler = get_scheduler(self.optimizer, warmup_steps=self.warmup_steps, total_steps=self.num_steps)
-            self.scheduler.load_state_dict(torch.load(os.path.join(checkpoint_path, "scheduler.pt"), map_location=self.model_ref.bert.encoder.layer[0].attention.self.query.weight.device))
