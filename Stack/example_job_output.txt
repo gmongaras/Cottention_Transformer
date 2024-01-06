@@ -1,0 +1,5 @@
+Token will not been saved to git credential helper. Pass `add_to_git_credential=True` if you want to set the git credential as well.
+Token is valid (permission: read).
+Your token has been saved to /users/-/.cache/huggingface/token
+Login successful
+Data Streaming Completed!
