@@ -11,9 +11,8 @@ BERT_Trainer/*.out
 BERT_Trainer/wikipedia_dataset/
 BERT_Trainer/bookcorpus_dataset/
 BERT_Trainer/glue_dataset/
-
-# Stack Folder
-batches/
+Stack/batches/
+Stack/*.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
