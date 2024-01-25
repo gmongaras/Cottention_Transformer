@@ -17,20 +17,20 @@ def main():
     warmup_steps=10_000
     num_steps=1_000_000
     dev="gpu"
-    wandb_name="redo_lr1e-4_Cos_Div"
+    wandb_name="redo_lr1e-4_Cos_DivLearnLength"
     log_steps=10
     use_amp=True
     attention_type="cos"
     clipping_value=None
     weight_decay=0.01
-    model_save_path = "models/redo_lr1e-4_Cos_Div"
+    model_save_path = "models/redo_lr1e-4_Cos_DivLearnLength"
     # model_save_path = "models/del"
     num_save_steps = 10_000
     keep_dataset_in_mem = False
     
     # Load in a checkpoint
     load_checkpoint = False
-    checkpoint_path = "models/redo_lr1e-4_Cos_Div/"
+    checkpoint_path = "models/redo_lr1e-4_Cos_DivLearnLength/"
     
     trainer = Trainer(
         batch_size=batch_size,

@@ -967,8 +967,10 @@ class Trainer():
             
     def load_checkpoint(self, checkpoint_path):
         # Load the model
-        self.model = transformers.BertForSequenceClassification.from_pretrained(checkpoint_path.replace(" ", "_"))
-        # self.model = transformers.BertForPreTraining.from_pretrained(checkpoint_path.replace(" ", "_"))
+        if self.finetune_:
+            self.model = transformers.BertForSequenceClassification.from_pretrained(checkpoint_path.replace(" ", "_"))
+        else:
+            self.model = transformers.BertForPreTraining.from_pretrained(checkpoint_path.replace(" ", "_"))
         
         # Load the config
         config = torch.load(os.path.join(checkpoint_path, "config.pt"))
@@ -1017,61 +1019,6 @@ class Trainer():
         #     # Freeze the MLM and NSP heads
         #     for param in self.model.cls.parameters():
         #         param.requires_grad = False                
-        
-        
-        # New optimizer if finetuning
-        if self.finetune_:
-            # Dataset to number mapping
-            self.dataset_name_to_num = {
-                "cola": 0,
-                "mnli": 1,
-                "mnli_matched_validation": 1,
-                "mnli_mismatched_validation": 1,
-                "mrpc": 2,
-                "qnli": 3,
-                "qqp": 4,
-                "rte": 5,
-                "sst2": 6,
-                "stsb": 7,
-                "wnli": 8,
-            }
-            self.num_to_dataset_name = {v: k for k, v in self.dataset_name_to_num.items()}
-            
-            # Assert that the task is valid
-            assert self.finetune_task in self.dataset_name_to_num, f"Invalid finetune task {self.finetune_task}"
-            
-            # Heads for finetuning tasks
-            if self.finetune_task == "cola":
-                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "mnli":
-                self.model.classifier = nn.Linear(self.model.config.hidden_size, 3, device=self.model.device)
-            elif self.finetune_task == "mrpc":
-                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "qnli":
-                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "qqp":
-                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "rte":
-                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "sst2":
-                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "stsb":
-                self.model.classifier = nn.Linear(self.model.config.hidden_size, 1, device=self.model.device)
-            elif self.finetune_task == "wnli":
-                self.model.classifier = nn.Linear(self.model.config.hidden_size, 2, device=self.model.device)
-            
-            # Initialize optimizer
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
-            
-        # Load checkpoint for optimizer if not finetuning
-        else:
-            # Load the optimizer
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
-            self.optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, "optimizer.pt"), map_location=self.model_ref.bert.encoder.layer[0].attention.self.query.weight.device))
-            
-            # Load the scheduler
-            self.scheduler = get_scheduler(self.optimizer, warmup_steps=self.warmup_steps, total_steps=self.num_steps)
-            self.scheduler.load_state_dict(torch.load(os.path.join(checkpoint_path, "scheduler.pt"), map_location=self.model_ref.bert.encoder.layer[0].attention.self.query.weight.device))
             
             
         # Put the model on the desired device
@@ -1096,3 +1043,59 @@ class Trainer():
             self.model = self.model.cpu()
             
             self.model_ref = self.model
+            
+            
+            
+        # New optimizer if finetuning
+        if self.finetune_:
+            # Dataset to number mapping
+            self.dataset_name_to_num = {
+                "cola": 0,
+                "mnli": 1,
+                "mnli_matched_validation": 1,
+                "mnli_mismatched_validation": 1,
+                "mrpc": 2,
+                "qnli": 3,
+                "qqp": 4,
+                "rte": 5,
+                "sst2": 6,
+                "stsb": 7,
+                "wnli": 8,
+            }
+            self.num_to_dataset_name = {v: k for k, v in self.dataset_name_to_num.items()}
+            
+            # Assert that the task is valid
+            assert self.finetune_task in self.dataset_name_to_num, f"Invalid finetune task {self.finetune_task}"
+            
+            # Heads for finetuning tasks
+            if self.finetune_task == "cola":
+                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "mnli":
+                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 3, device=self.model.device)
+            elif self.finetune_task == "mrpc":
+                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "qnli":
+                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "qqp":
+                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "rte":
+                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "sst2":
+                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
+            elif self.finetune_task == "stsb":
+                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 1, device=self.model.device)
+            elif self.finetune_task == "wnli":
+                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
+            
+            # Initialize optimizer
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
+            
+        # Load checkpoint for optimizer if not finetuning
+        else:
+            # Load the optimizer
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
+            self.optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, "optimizer.pt"), map_location=self.model.device))
+            
+            # Load the scheduler
+            self.scheduler = get_scheduler(self.optimizer, warmup_steps=self.warmup_steps, total_steps=self.num_steps)
+            self.scheduler.load_state_dict(torch.load(os.path.join(checkpoint_path, "scheduler.pt"), map_location=self.model.device))

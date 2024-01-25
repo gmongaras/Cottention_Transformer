@@ -62,13 +62,16 @@ class BertCosAttention(nn.Module):
         # self.relu_constant = nn.Parameter(torch.zeros(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device))
         
         # Learnable constant for each head for norm
-        # self.norm_const = nn.Parameter(torch.ones(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device))
+        self.norm_const = nn.Parameter(0.5*torch.ones(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype)).to(self.query.weight.device)
         # init between 0.1 and 0.9
         # self.norm_const = nn.Parameter(torch.rand(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device)*0.8+0.1)
         # Between -1 and 1
         # self.norm_const = nn.Parameter(torch.rand(1, self.num_attention_heads, 1, 1, dtype=self.query.weight.dtype, device=self.query.weight.device)*2-1)
         
-        # self.norm = nn.LayerNorm(self.all_head_size)
+        # self.norm = nn.LayerNorm(self.attention_head_size)
+        
+        # self.ff = nn.Sequential(nn.Linear(self.all_head_size, self.num_attention_heads), nn.Sigmoid())
+        # self.ff = nn.Sequential(nn.Linear(self.attention_head_size, 1), nn.Sigmoid())
         
         # self.relu = SoftenedReLU()
         
@@ -150,8 +153,12 @@ class BertCosAttention(nn.Module):
         key_layer = torch.nn.functional.normalize(key_layer, dim=-1, p=2)
         
         # Scale the values
-        value_layer = value_layer / attention_mask.sum(-1).unsqueeze(-1)#**self.norm_const.sigmoid()
-        # value_layer = torch.nn.functional.normalize(value_layer, dim=-1, p=2)
+        # value_layer = value_layer / (attention_mask.sum(-1).unsqueeze(-1)**(value_layer.sigmoid())).clamp(min=1)
+        # value_layer = value_layer / (attention_mask.sum(-1)**self.ff(hidden_states)).clamp(min=1).transpose(-1, -2).unsqueeze(-1)
+        # value_layer = value_layer / (attention_mask.sum(-1)**self.ff(hidden_states)).clamp(min=1).transpose(-1, -2).unsqueeze(-1)
+        # value_layer = value_layer / (attention_mask.sum(-1).unsqueeze(-1)**self.ff(value_layer)).clamp(min=1)
+        value_layer = value_layer / (attention_mask.sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()).clamp(min=1)
+        # value_layer = value_layer / self.all_head_size**0.5
         
         
         # # Project the query, key, and value layers
@@ -218,6 +225,10 @@ class BertCosAttention(nn.Module):
             
             # More effiicent implementation:
             context_layer = torch.einsum("nhsw,nhwe->nhse", query_layer, torch.einsum("nhse,nhsw->nhew", key_layer, value_layer))
+        
+        # Scale outputs then normalize
+        # context_layer = self.norm(context_layer / attention_mask.sum(-1).unsqueeze(-1))
+        # context_layer = (context_layer * self.ff(hidden_states).transpose(-1, -2).unsqueeze(-1))
         
         # context_layer = torch.einsum("nhsq,nhqw->nhsw", self.dropout(torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer).relu()), value_layer)
         # context_layer = torch.einsum("nhsq,nhqw->nhsw", torch.nn.functional.gelu(torch.einsum("nhse,nhqe->nhsq", query_layer, key_layer)), value_layer)
