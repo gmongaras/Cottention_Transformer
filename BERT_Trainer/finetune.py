@@ -20,7 +20,7 @@ import click
 @click.option('--dev', default='gpu', help='Device to use for training (e.g., gpu or cpu).')
 @click.option('--wandb_name', default=None, help='Weights & Biases project name.')
 @click.option('--log_steps', default=10, help='Frequency of logging steps.')
-@click.option('--use_amp', is_flag=True, help='Use automatic mixed precision.')
+@click.option('--use_amp', default=True, type=bool, help='Use automatic mixed precision.')
 @click.option('--attention_type', default='soft', help='Type of attention to use.')
 @click.option('--clipping_value', default=None, type=float, help='Gradient clipping value.')
 @click.option('--weight_decay', default=0.01, help='Weight decay for the optimizer.')

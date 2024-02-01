@@ -668,6 +668,9 @@ class Trainer():
         batch_indices = np.arange(self.batch_size)
 
         for dataset in datasets:
+            # Shuffle the dataset
+            dataset = dataset.sample(frac=1).reset_index(drop=True, inplace=False)
+            
             # Convert 'dataset_name' to numerical
             dataset['dataset_name'] = self.dataset_name_to_num[dataset['dataset_name'].iloc[0]]
 
@@ -717,29 +720,20 @@ class Trainer():
             self.tokenized_dataset["validation"]["mismatched"].set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
         
         # Get train and validation datasets
-        train_dataset = [self.tokenized_dataset["train"].to_pandas()]
+        train_dataset_ = [self.tokenized_dataset["train"].to_pandas()]
         if self.finetune_task == "mnli":
-            val_dataset = {
+            val_dataset_ = {
                 "matched": [self.tokenized_dataset["validation"]["matched"].to_pandas()],
                 "mismatched": [self.tokenized_dataset["validation"]["mismatched"].to_pandas()],
             }
         else:
-            val_dataset = [self.tokenized_dataset["validation"].to_pandas()]
+            val_dataset_ = [self.tokenized_dataset["validation"].to_pandas()]
         
         # # Group the huggingface datasets by "dataset_name"
         # train_dataset = train_dataset.groupby("dataset_name")
         # val_dataset = val_dataset.groupby("dataset_name")
         # train_dataset = [train_dataset.get_group(x) for x in train_dataset.groups]
         # val_dataset = [val_dataset.get_group(x) for x in val_dataset.groups]
-        
-        train_dataset = self.prepare_batches(train_dataset)
-        if self.finetune_task == "mnli":
-            val_dataset = {
-                "matched": self.prepare_batches(val_dataset["matched"]),
-                "mismatched": self.prepare_batches(val_dataset["mismatched"]),
-            }
-        else:
-            val_dataset = self.prepare_batches(val_dataset)
         
         
         
@@ -770,8 +764,19 @@ class Trainer():
             batch_loss = 0
             batch_acc = 0
             
-            # Shuffle dataset
-            np.random.shuffle(train_dataset)
+            # Batch the dataset
+            train_dataset = self.prepare_batches(train_dataset_)
+            if self.finetune_task == "mnli":
+                val_dataset = {
+                    "matched": self.prepare_batches(val_dataset_["matched"]),
+                    "mismatched": self.prepare_batches(val_dataset_["mismatched"]),
+                }
+            else:
+                val_dataset = self.prepare_batches(val_dataset_)
+            
+            # Stored outputs and labels
+            outputs_ = []
+            labels_ = []
             
             # Training loop
             for step, batch in enumerate(tqdm(train_dataset)) if is_main_process() else enumerate(train_dataset):
@@ -829,9 +834,7 @@ class Trainer():
                 batch_loss += loss.item()/len(train_dataset)
                 
                 # Update batch accuracy
-                if self.num_to_dataset_name[dataset_name] == "stsb":
-                    batch_acc += torch.abs(outputs - labels.to(outputs.device)).sum().item()/len(train_dataset)
-                elif self.num_to_dataset_name[dataset_name] == "qqp" or self.num_to_dataset_name[dataset_name] == "mrpc":
+                if self.num_to_dataset_name[dataset_name] == "qqp" or self.num_to_dataset_name[dataset_name] == "mrpc":
                     # F1 score
                     TP = ((outputs.argmax(dim=-1) == labels.long().to(outputs.device)) & (labels == 1)).sum().item()
                     FP = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 1)).sum().item()
@@ -839,16 +842,34 @@ class Trainer():
                     
                     batch_acc += TP/(TP + 0.5*(FP+FN))/len(train_dataset) if TP + 0.5*(FP+FN) != 0 else 0
                 else:
-                    batch_acc += ((outputs.argmax(dim=-1) == labels.long().to(outputs.device))).float().mean()/len(train_dataset)
+                    outputs_ += list(outputs.squeeze(-1).float().cpu().detach().numpy())
+                    labels_ += list(labels.float().cpu().detach().numpy())
                 
-                
+            # Calculate the stsb Pearson correlation
+            if self.num_to_dataset_name[dataset_name] == "stsb":
+                outputs_ = np.array(outputs_)
+                labels_ = np.array(labels_)
+                # batch_acc = 1 - (
+                #         (6*((outputs_ - labels_)**2).sum())
+                #         / (outputs_.shape[0] * (outputs_.shape[0]**2 - 1))
+                #     )
+                batch_acc = abs(np.corrcoef(outputs_, labels_)[0, 1])
+            elif self.num_to_dataset_name[dataset_name] != "qqp" and self.num_to_dataset_name[dataset_name] != "mrpc":
+                batch_acc = (np.stack(outputs_).argmax(-1)==np.stack(labels_)).astype(float).mean()
             
             print("Validating...")
             self.model.eval()
             def val_loop(dataset):
                 val_batch_loss = 0
                 val_acc = 0
+                
+                # Stored outputs and labels
+                outputs_ = []
+                labels_ = []
+                
                 # Validation loop
+                D = []
+                L = []
                 for step, batch in enumerate(tqdm(dataset)) if is_main_process() else enumerate(dataset):
                     # Get input and labels
                     input_ids = batch["input_ids"].to(self.model.device)
@@ -874,9 +895,7 @@ class Trainer():
                     val_batch_loss += loss.item()/len(dataset)
                     
                     # Update batch accuracy
-                    if self.num_to_dataset_name[dataset_name] == "stsb":
-                        val_acc += torch.abs(outputs - labels.to(outputs.device)).sum().item()/len(dataset)
-                    elif self.num_to_dataset_name[dataset_name] == "qqp" or self.num_to_dataset_name[dataset_name] == "mrpc":
+                    if self.num_to_dataset_name[dataset_name] == "qqp" or self.num_to_dataset_name[dataset_name] == "mrpc":
                         # F1 score
                         TP = ((outputs.argmax(dim=-1) == labels.long().to(outputs.device)) & (labels == 1)).sum().item()
                         FP = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 1)).sum().item()
@@ -884,7 +903,20 @@ class Trainer():
                         
                         val_acc += TP/(TP + 0.5*(FP+FN))/len(dataset) if TP + 0.5*(FP+FN) != 0 else 0
                     else:
-                        val_acc += (outputs.argmax(dim=-1) == labels.long().to(outputs.device)).float().mean().item()/len(dataset)
+                        outputs_ += list(outputs.squeeze(-1).float().cpu().detach().numpy())
+                        labels_ += list(labels.float().cpu().detach().numpy())
+                        
+                # Calculate the stsb Pearson correlation
+                if self.num_to_dataset_name[dataset_name] == "stsb":
+                    outputs_ = np.array(outputs_)
+                    labels_ = np.array(labels_)
+                    # val_acc = 1 - (
+                    #         (6*((outputs_ - labels_)**2).sum())
+                    #         / (outputs_.shape[0] * (outputs_.shape[0]**2 - 1))
+                    #     ) 
+                    val_acc = abs(np.corrcoef(outputs_, labels_)[0, 1])
+                elif self.num_to_dataset_name[dataset_name] != "qqp" and self.num_to_dataset_name[dataset_name] != "mrpc":
+                    val_acc = (np.stack(outputs_).argmax(-1)==np.stack(labels_)).astype(float).mean()
                         
                 return val_batch_loss, val_acc
                         
@@ -974,19 +1006,20 @@ class Trainer():
         
         # Load the config
         config = torch.load(os.path.join(checkpoint_path, "config.pt"))
-        self.learning_rate = config["learning_rate"]
-        self.warmup_steps = config["warmup_steps"]
-        self.num_steps = config["num_steps"]
-        if not self.finetune_:
-            self.wandb_name = config["wandb_name"]
-        self.log_steps = config["log_steps"]
-        self.use_amp = config["use_amp"]
-        self.dev = config["dev"]
-        self.clipping_value = config["clipping_value"]
-        self.weight_decay = config["weight_decay"]
-        self.step_ckpt = config["step_ckpt"]
+        if not self.finetune_: # Don't load some config variables if finetuning
+            self.learning_rate = config["learning_rate"]
+            self.warmup_steps = config["warmup_steps"]
+            self.num_steps = config["num_steps"]
+            if not self.finetune_:
+                self.wandb_name = config["wandb_name"]
+            self.log_steps = config["log_steps"]
+            self.use_amp = config["use_amp"]
+            self.dev = config["dev"]
+            self.clipping_value = config["clipping_value"]
+            self.weight_decay = config["weight_decay"]
+            self.step_ckpt = config["step_ckpt"]
+            self.wandb_id = config["wandb_id"]
         self.attention_type = config["attention_type"]
-        self.wandb_id = config["wandb_id"]
         
         # Replace all self attention layers (BertSelfAttention) with the cosine attention layer (BertCosAttention)
         if self.attention_type == "cos":

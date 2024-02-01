@@ -34,6 +34,22 @@ class SoftenedReLU(torch.nn.Module):
 
     def forward(self, input):
         return SoftenedReLUFunction.apply(input, self.leak_slope)
+    
+    
+    
+    
+# Custom dropout function that drops entire tokens
+class Token_Dropout(nn.Module):
+    def __init__(self, p=0.1):
+        super().__init__()
+        self.p = p
+        
+    def forward(self, x):
+        if self.training:
+            mask = torch.rand(x.shape[:-1], device=x.device) > self.p
+            mask = mask.unsqueeze(-1)
+            x = x * mask
+        return x
 
 
 
@@ -74,6 +90,8 @@ class BertCosAttention(nn.Module):
         # self.ff = nn.Sequential(nn.Linear(self.attention_head_size, 1), nn.Sigmoid())
         
         # self.relu = SoftenedReLU()
+        
+        # self.token_dropout = Token_Dropout(p=config.attention_probs_dropout_prob)
         
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.position_embedding_type = position_embedding_type or getattr(
@@ -159,6 +177,10 @@ class BertCosAttention(nn.Module):
         # value_layer = value_layer / (attention_mask.sum(-1).unsqueeze(-1)**self.ff(value_layer)).clamp(min=1)
         value_layer = value_layer / (attention_mask.sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()).clamp(min=1)
         # value_layer = value_layer / self.all_head_size**0.5
+        
+        # # Apply dropout to the queries and keys
+        # query_layer = self.token_dropout(query_layer)
+        # key_layer = self.token_dropout(key_layer)
         
         
         # # Project the query, key, and value layers
