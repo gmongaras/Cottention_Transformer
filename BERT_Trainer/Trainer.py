@@ -244,7 +244,8 @@ class Trainer():
             # Put the model on the desired device
             if dev != "cpu":
                 # Initialize the environment
-                init_distributed()
+                if not dist.is_initialized():
+                    init_distributed()
                 
                 try:
                     local_rank = int(os.environ['LOCAL_RANK'])
@@ -1062,7 +1063,8 @@ class Trainer():
                 self.model_ref = self.model
             else:
                 # Initialize the environment
-                init_distributed()
+                if not torch.distributed.is_initialized():
+                    init_distributed()
                 
                 try:
                     local_rank = int(os.environ['LOCAL_RANK'])
