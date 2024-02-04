@@ -26,11 +26,12 @@ def main():
 
     # What is the max length for the model?
     max_length = tokenizer.model_max_length
+    # max_length = 128
     
     # Load in datasets
     if not os.path.exists(cache_path):
         os.makedirs(cache_path)
-    wiki_tokenized_dataset = datasets.load_dataset("gmongaras/BERT_Base_Cased_512_Dataset", cache_dir=cache_path)["train"]
+    wiki_tokenized_dataset = datasets.load_dataset(f"gmongaras/BERT_Base_Cased_{max_length}_Dataset", cache_dir=cache_path)["train"]
     
     # Tokenize the data
     if not os.path.exists(tok_cache_path):
@@ -41,7 +42,7 @@ def main():
     wiki_tokenized_dataset = wiki_tokenized_dataset.filter(lambda x: len(x["input_ids"]) <= max_length)
 
     # Push to hub
-    wiki_tokenized_dataset.push_to_hub("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", token=TOKEN)
+    wiki_tokenized_dataset.push_to_hub(f"gmongaras/BERT_Base_Cased_{max_length}_Dataset_Mapped", token=TOKEN)
     
     
     

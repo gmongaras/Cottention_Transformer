@@ -111,6 +111,7 @@ class Trainer():
             checkpoint_path=None,
             finetune=False,
             finetune_task=None,
+            per_short_steps=0.9 # Percentage of steps to use the short sequence length (first 90% by default)
         ):
         self.learning_rate = learning_rate
         self.warmup_steps = warmup_steps
@@ -126,6 +127,7 @@ class Trainer():
         self.keep_dataset_in_mem = keep_dataset_in_mem
         self.finetune_ = finetune
         self.finetune_task = finetune_task
+        self.per_short_steps = per_short_steps
         
         
         
@@ -406,20 +408,33 @@ class Trainer():
         if self.finetune_:
             self.finetune()
         else:
-            self.train()
+            self.train_model()
+            
+            
+            
+            
+    def train_model(self):
+        # Train on the short sequence length (first 90% of steps by default)
+        print("Training on the short sequence length")
+        if int(self.num_steps*self.per_short_steps) - self.step_ckpt > 0:
+            self.train_model_("gmongaras/BERT_Base_Cased_128_Dataset_Mapped", int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0)
+        
+        # Train on the long sequence length (last 10% of steps by default)
+        print("Training on the long sequence length")
+        self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", self.num_steps-int(self.num_steps*self.per_short_steps) - self.step_ckpt, int(self.num_steps*self.per_short_steps) - self.step_ckpt)
         
         
         
         
         
-    def train(self):
+    def train_model_(self, dataset, num_steps, step_shift):
         # Cache dirs
         cache_path = "BERT_Trainer/data_cache/dataset_mapped"
         
         # Load in datasets
         if not os.path.exists(cache_path):
             os.makedirs(cache_path)
-        self.tokenized_dataset = datasets.load_dataset("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", cache_dir=cache_path, num_proc=16, keep_in_memory=self.keep_dataset_in_mem)["train"]
+        self.tokenized_dataset = datasets.load_dataset(dataset, cache_dir=cache_path, num_proc=16, keep_in_memory=self.keep_dataset_in_mem)["train"]
         
         # Load dummy data
         # tokenized_dataset = datasets.load_from_disk("BERT_Trainer/data_cache/dummy_dataset")
@@ -428,12 +443,12 @@ class Trainer():
         self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids"])
         
         # PyTorch random sampler
-        random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=(self.num_steps-self.step_ckpt)*self.batch_size)
+        random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=num_steps*self.batch_size)
         
         # PyTorch data loader
         data_loader = torch.utils.data.DataLoader(
             self.tokenized_dataset, 
-            sampler=random_sampler, 
+            sampler=random_sampler,
             batch_size=self.batch_size, 
             collate_fn=lambda x: x,
             
@@ -489,7 +504,7 @@ class Trainer():
         loss_fct_NSP = nn.CrossEntropyLoss()
         
         # Training loop
-        for step, batch in enumerate(tqdm(data_loader, initial=self.step_ckpt, total=self.num_steps)) if is_main_process() else enumerate(data_loader):
+        for step, batch in enumerate(tqdm(data_loader, initial=self.step_ckpt + step_shift, total=num_steps + step_shift)) if is_main_process() else enumerate(data_loader):
             # Set the epoch number for the dataloader to seed the
             # randomization of the sampler
             # if self.dev != "cpu":
@@ -549,7 +564,7 @@ class Trainer():
                 self.optimizer.step()
             
             # Update scheduler
-            self.scheduler.step(step+self.step_ckpt)
+            self.scheduler.step(step+self.step_ckpt+step_shift)
             
             # Step the gradient scaler
             if self.use_amp:
@@ -579,7 +594,7 @@ class Trainer():
                         "loss": batch_loss,
                         "lr": self.optimizer.param_groups[0]['lr'],
                     },
-                    step=step+self.step_ckpt)
+                    step=step+self.step_ckpt+step_shift)
                 
                 batch_MLM_loss = 0
                 batch_NSP_loss = 0

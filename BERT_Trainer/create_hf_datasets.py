@@ -19,6 +19,7 @@ tokenizer = transformers.AutoTokenizer.from_pretrained("bert-base-cased", use_fa
 
 # What is the max length for the model?
 max_length = tokenizer.model_max_length
+# max_length = 128
 
 
 def clean_text(line):
@@ -133,7 +134,7 @@ def main():
     sentence_pairs = datasets.Dataset.from_list(sentence_pairs)
     
     # Push to hub
-    sentence_pairs.push_to_hub("gmongaras/BERT_Base_Cased_512_Dataset", token=TOKEN)
+    sentence_pairs.push_to_hub(f"gmongaras/BERT_Base_Cased_{max_length}_Dataset", token=TOKEN)
     
     
     
