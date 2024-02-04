@@ -13,6 +13,8 @@ BERT_Trainer/bookcorpus_dataset/
 BERT_Trainer/glue_dataset/
 Stack/batches/
 Stack/*.sh
+models/
+imgs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -13,7 +13,48 @@
             // "program": "${file}",
             // "module": "src.infer",
 
-            "module": "BERT_Trainer.trainer",
+            // "module": "BERT_Trainer.map_hf_dataset",
+            // "module": "BERT_Trainer.create_hf_ft_dataset",
+            // "module": "BERT_Trainer.infer",
+            // "module": "BERT_Trainer.heh_einsum_test",
+
+            "program": "/home/gmongaras/miniconda3/bin/torchrun",
+            // "program": "/users/gmongaras/baseEnv/bin/torchrun",
+            "args": [
+                "--nproc_per_node=8",
+                "--master-port", "29507",
+                "BERT_Trainer/trainer.py",
+            ],
+            "env": {
+                    "CUDA_LAUNCH_BLOCKING": "1",
+                    "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+                },
+
+            // "program": "/home/gmongaras/miniconda3/bin/torchrun",
+            // // "program": "/users/gmongaras/baseEnv/bin/torchrun",
+            // "args": [
+            //     "--nproc_per_node=1",
+            //     "--master-port", "29507",
+            //     "BERT_Trainer/finetune.py",
+            //     "--finetune_task", "cola",
+            //     "--checkpoint_path", "models/redo_lr1e-4_Cos_DivLearnLength/"
+            // ],
+            // "env": {
+            //     "CUDA_LAUNCH_BLOCKING": "1",
+            //     "CUDA_VISIBLE_DEVICES": "0",
+            // },
+
+            // // "program": "/home/gmongaras/miniconda3/bin/torchrun",
+            // "program": "/users/gmongaras/baseEnv/bin/torchrun",
+            // "args": [
+            //     "--nproc_per_node=1",
+            //     "--master-port", "29507",
+            //     "BERT_Trainer/speed_test.py",
+            // ],
+            // "env": {
+            //     "CUDA_LAUNCH_BLOCKING": "1",
+            //     "CUDA_VISIBLE_DEVICES": "0",
+            // },
 
             // "program": "/home/gmongaras/miniconda3/bin/torchrun",
             // "args": [
@@ -22,6 +63,15 @@
             //     "src/train.py",
             // ],
             // "env": {"CUDA_LAUNCH_BLOCKING": "1"},
+
+            // "program": "/home/gmongaras/miniconda3/bin/torchrun",
+            // "args": [
+            //     "--nproc_per_node",
+            //     "2",
+            //     "--master-port",
+            //     "29503",
+            //     "src/train.py"
+            // ],
 
             // "module": "src/infer.py"
 
