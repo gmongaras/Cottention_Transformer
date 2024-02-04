@@ -62,6 +62,17 @@ What worked best?
 - Although dividing by a constant worked most of the time, it failed sometimes. Normalizing the values worked for all tests so far.
 
 
+## Data Problems
+Training the above was trained on data without punctuation as the data script removed these by mistake. Adding them back results in proper data. Additionally, this data had a few problems, which were addressed to clean the data further and properly.
+
+## Fixing Stability
+With the new data, the stability becomes wacky again. The value norm method dies because the magnitude of the vectors becomes too large. The norm method worked for the other data likely because that data had much shorter sentences. However, as the sentence size grows, the magnitude of the attention row vectors increases as the max magnitude is the sequence length itself. This results in an unstable behavior, as the number of layer increases, the magnitude of the vectors increases if the attention vectors have a magnitude greater than 1, which is very likely. This magnitude issue results in unstable values and unstable and large gradients.
+
+To fix this, we are going back to the divide by the sequence lenght method for now. This method will obviously fix the magnitude issue in all cases, however, the model may hae issues as the scores could decrease to 0 instead of increasing to infinity, which is a much better problem. We will see how this works out. 
+
+I am afraid that this method may result in long sequence issue. Let's say we have a sequence of length S and we increase the sequence to 2S. Let's say that the addition of S tokens doesn't add any attention scores as perhaps we addeed some trash token the model doesn't care about. Then, the attention scores are divided by two, which may cause vanishing values as layers are stacked. I am thinking that since information among tokens is sparse, as the sequence length increases, the attention scores will have issues. Just a hypothesis, not sure if this is actually a problem or not.
+
+
 
 ## GPT
 
