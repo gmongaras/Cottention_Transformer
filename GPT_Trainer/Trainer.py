@@ -19,11 +19,11 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
 try:
-    from BERT_Trainer.multi_gpu_helpers import is_main_process
-    from BERT_Trainer.BertCosAttention import BertCosAttention
+    from GPT_Trainer.multi_gpu_helpers import is_main_process
+    from GPT_Trainer.GPTCosAttention import GPTCosAttention
 except ModuleNotFoundError:
     from multi_gpu_helpers import is_main_process
-    from BertCosAttention import BertCosAttention
+    from GPTCosAttention import GPTCosAttention
 
 
 
@@ -158,87 +158,63 @@ class Trainer():
         # Otherwise initialize from scratch
         else:
             # Tokenizer
-            self.tokenizer = transformers.AutoTokenizer.from_pretrained("bert-base-cased", use_fast=False, cache_dir="BERT_Trainer/BERT_Model")
-            # BERT Model. We are training it from scratch
-            self.model = transformers.BertForPreTraining(config=transformers.BertConfig.from_dict({
+            self.tokenizer = transformers.AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", use_fast=False, cache_dir="GPT_Trainer/gpt-j-6B")
+            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+            self.pad_token = torch.tensor([self.tokenizer.pad_token_id])
+            # GPT-J Model. We are training it from scratch
+            self.model = transformers.GPTJForCausalLM(config=transformers.GPTJConfig.from_dict({
+                "activation_function": "gelu_new",
                 "architectures": [
-                    "BertForMaskedLM"
+                    "GPTJForCausalLM"
                 ],
-                "attention_probs_dropout_prob": 0.1,
+                "attn_pdrop": 0.0,
+                "bos_token_id": 50256,
+                "embd_pdrop": 0.0,
+                "eos_token_id": 50256,
                 "gradient_checkpointing": False,
-                "hidden_act": "gelu",
-                "hidden_dropout_prob": 0.1,
-                "hidden_size": 768,
                 "initializer_range": 0.02,
-                "intermediate_size": 3072,
-                "layer_norm_eps": 1e-12,
-                "max_position_embeddings": 512,
-                "model_type": "bert",
-                "num_attention_heads": 12,
-                "num_hidden_layers": 12,
-                "pad_token_id": 0,
-                "position_embedding_type": "absolute",
-                "type_vocab_size": 2,
+                "layer_norm_epsilon": 1e-05,
+                "model_type": "gptj",
+                "n_embd": 2048, # 4096,
+                "n_head": 16,
+                "n_inner": None,
+                "n_layer": 20, #28,
+                "n_positions": 2048,
+                "resid_pdrop": 0.0,
+                "rotary": True,
+                "rotary_dim": 64,
+                "scale_attn_weights": True,
+                "summary_activation": None,
+                "summary_first_dropout": 0.1,
+                "summary_proj_to_labels": True,
+                "summary_type": "cls_index",
+                "summary_use_proj": True,
+                "task_specific_params": {
+                    "text-generation": {
+                    "do_sample": True,
+                    "max_length": 50,
+                    "temperature": 1.0
+                    }
+                },
+                "tie_word_embeddings": False,
+                "tokenizer_class": "GPT2Tokenizer",
+                "transformers_version": "4.18.0.dev0",
                 "use_cache": True,
-                "vocab_size": 28996
+                "vocab_size": 50400
             }))
             
             
-            # Replace all self attention layers (BertSelfAttention) with the cosine attention layer (BertCosAttention)
+            # Replace all self attention layers (BertSelfAttention) with the cosine attention layer (GPTCosAttention)
             if attention_type == "cos":
-                for layer in self.model.bert.encoder.layer:
-                    old = layer.attention.self
-                    layer.attention.self = BertCosAttention(self.model.config).to(layer.attention.self.query.weight.device)
+                for layer in self.model.transformer.h:
+                    old = layer.attn
+                    layer.attn = GPTCosAttention(self.model.config).to(layer.attn.q_proj.weight.device)
                     del old
                     
                     
                     
             # Add attention type to the config
             self.attention_type = attention_type
-            
-            
-            
-            # # Add a layer to the model
-            # h = self.model.config.hidden_size // self.model.config.num_attention_heads
-            # self.model.q_proj_global = nn.Sequential(
-            #     nn.ReLU(),
-            #     nn.Linear(h, h*2),
-            #     nn.ReLU(),
-            #     nn.Linear(h*2, h*2),
-            #     nn.ReLU(),
-            #     nn.Linear(h*2, h),
-            # )
-            # self.model.k_proj_global = nn.Sequential(
-            #     nn.ReLU(),
-            #     nn.Linear(h, h*2),
-            #     nn.ReLU(),
-            #     nn.Linear(h*2, h*2),
-            #     nn.ReLU(),
-            #     nn.Linear(h*2, h),
-            # )
-            # self.model.v_proj_global = nn.Sequential(
-            #     nn.ReLU(),
-            #     nn.Linear(h, h*2),
-            #     nn.ReLU(),
-            #     nn.Linear(h*2, h*2),
-            #     nn.ReLU(),
-            #     nn.Linear(h*2, h),
-            # )
-            # self.model.a_proj_global = nn.Sequential(
-            #     nn.Conv2d(self.model.config.num_attention_heads, self.model.config.num_attention_heads*2, (11, 1), stride=(1, 1), padding=(5, 0)),
-            #     nn.ReLU(),
-            #     nn.Conv2d(self.model.config.num_attention_heads*2, self.model.config.num_attention_heads*2, (11, 1), stride=(1, 1), padding=(5, 0)),
-            #     nn.ReLU(),
-            #     nn.Conv2d(self.model.config.num_attention_heads*2, self.model.config.num_attention_heads, (11, 1), stride=(1, 1), padding=(5, 0)),
-            #     nn.ReLU(),
-            # )
-            
-            # Copy layer reference to every attention layer
-            # for layer in self.model.bert.encoder.layer:
-            #     layer.attention.self.q_proj_global = self.model.q_proj_global
-            #     layer.attention.self.k_proj_global = self.model.k_proj_global
-            #     layer.attention.self.v_proj_global = self.model.v_proj_global
-            #     layer.attention.self.a_proj_global = self.model.a_proj_global
             
             
             
@@ -279,114 +255,34 @@ class Trainer():
             else:
                 self.model_ref = self.model.module
         
-        
-        
-        
-        # Used to get a random token from the dataset, not including special tokens (0, 101, 102, 103)
-        self.tokens = torch.arange(0, self.model_ref.config.vocab_size)
-        self.tokens = self.tokens[(self.tokens != 0) & (self.tokens != 101) & (self.tokens != 102) & (self.tokens != 103)]
-        
-        
-        
-        
+            
         
     def augment_data(self, batch):
         # Max lenght of the input
-        max_length = max([len(x["input_ids"]) for x in batch])
-        
-        # 0 if the sentences go together, else 1
-        sentence_pairs_labels = []
+        max_length = max([len(x["input_ids"]) for x in batch]) + 1 # +1 for the extra pad token
         
         
         for i in range(len(batch)):
-            ### First, augment sentences with random sentences
-            
-            
-            # Augment 50% of the sentences
-            if torch.rand(1) < 0.5:
-                # Get a random sentence from the dataset
-                random_sentence = next(iter(self.random_data_loader))['input_ids'][0]
-                
-                # Randomly get the first or second sentence in the pair
-                idxs = (random_sentence == 102).nonzero(as_tuple=True)[0]
-                if torch.rand(1) < 0.5:
-                    random_sentence = random_sentence[1:idxs[0]]
-                else:
-                    random_sentence = random_sentence[idxs[0]+1:]
-                
-                # Get the index of the [SEP] token
-                sep_index = (batch[i]["input_ids"] == 102).nonzero(as_tuple=True)[0][0]
-                
-                # Insert the sentence as a new sentence with the [SEP] token and the second
-                # sentence as the "B" sentence
-                batch[i]["input_ids"] = torch.cat([batch[i]["input_ids"][:sep_index+1], random_sentence])
-                batch[i]["attention_mask"] = torch.cat([batch[i]["attention_mask"][:sep_index+1], torch.ones_like(random_sentence)])
-                batch[i]["token_type_ids"] = torch.cat([batch[i]["token_type_ids"][:sep_index+1], torch.ones_like(random_sentence)])
-                
-                sentence_pairs_labels.append(1)
-                
-            # Otherwise, just change the second sentence to type B
-            else:
-                # Get the index of the [SEP] token
-                sep_index = (batch[i]["input_ids"] == 102).nonzero(as_tuple=True)[0][0]
-                
-                # Change the token type ids to type B
-                batch[i]["token_type_ids"][sep_index+1:] = 1
-                
-                sentence_pairs_labels.append(0)
-                
-        
-        
             ### Trim the input to max length
-            batch[i]["input_ids"] = batch[i]["input_ids"][:max_length]
-            batch[i]["attention_mask"] = batch[i]["attention_mask"][:max_length]
-            batch[i]["token_type_ids"] = batch[i]["token_type_ids"][:max_length]
+            batch[i]["input_ids"] = batch[i]["input_ids"][:self.tokenizer.model_max_length]
+            batch[i]["attention_mask"] = batch[i]["attention_mask"][:self.tokenizer.model_max_length]
+            batch[i]["token_type_ids"] = batch[i]["token_type_ids"][:self.tokenizer.model_max_length]
+            
+            ### Add a pad token to the end without mask to make the model stop itself
+            batch[i]["input_ids"] = torch.cat([batch[i]["input_ids"], self.pad_token])
+            batch[i]["attention_mask"] = torch.cat([batch[i]["attention_mask"], torch.tensor([1])])
+            batch[i]["token_type_ids"] = torch.cat([batch[i]["token_type_ids"], torch.tensor([0])])
         
             ### Pad the input to max length
             batch[i]["input_ids"] = torch.cat([batch[i]["input_ids"], torch.zeros(max_length - len(batch[i]["input_ids"]), dtype=torch.long)])
-            batch[i]["attention_mask"] = torch.cat([batch[i]["attention_mask"], torch.zeros(max_length - len(batch[i]["attention_mask"]), dtype=torch.long)])
+            batch[i]["attention_mask"] = torch.cat([batch[i]["attention_mask"], torch.zeros(max_length - len(batch[i]["attention_mask"]), dtype=torch.long)]).bool()
             batch[i]["token_type_ids"] = torch.cat([batch[i]["token_type_ids"], torch.ones(max_length - len(batch[i]["token_type_ids"]), dtype=torch.long)])
             
-            
-            
-            ### Mask 15% of the tokens
-            
-            # Labels for the MLM
-            labels = batch[i]["input_ids"].clone()
-            
-            for t in range(len(batch[i]["input_ids"])):
-                # If the token is a special token, the label is -100
-                if batch[i]["input_ids"][t] == 0 or batch[i]["input_ids"][t] == 102 or batch[i]["input_ids"][t] == 101:
-                    labels[t] = -100
-                    continue
-                
-                # Mask 15% of the tokens
-                if torch.rand(1) < 0.15:
-                    # Update Label
-                    labels[t] = batch[i]["input_ids"][t]
-                    
-                    # 80% of the time, replace with [MASK]
-                    if torch.rand(1) < 0.8:
-                        # Update token
-                        batch[i]["input_ids"][t] = 103
-                        
-                    # 10% of the time, replace with random token
-                    elif torch.rand(1) < 0.5:
-                        # Update token. Do not allow special tokens (0, 101, 102, 103)
-                        batch[i]["input_ids"][t] = self.tokens[torch.randint(len(self.tokens), (1,))]
-                        
-                    # 10% of the time, keep the same
-                    else:
-                        # Label is not -100 as the model still has to predict the token
-                        pass
-                        
-                # Otherwise, keep the same.
-                # -100 is the ignore index for the loss function
-                else:
-                    labels[t] = -100
-                    
-            # Save the labels
-            batch[i]["labels"] = labels
+            ### Labels are input ids shifted by one. Remove the last token from the others to match the labels
+            batch[i]["labels"] = batch[i]["input_ids"].clone()[1:]
+            batch[i]["input_ids"] = batch[i]["input_ids"][:-1]
+            batch[i]["attention_mask"] = batch[i]["attention_mask"][:-1]
+            batch[i]["token_type_ids"] = batch[i]["token_type_ids"][:-1]
                     
         # Stack the data
         return {
@@ -394,12 +290,7 @@ class Trainer():
             "attention_mask": torch.stack([x["attention_mask"] for x in batch]),
             "token_type_ids": torch.stack([x["token_type_ids"] for x in batch]),
             "labels": torch.stack([x["labels"] for x in batch]),
-            "sentence_pairs_labels": torch.tensor(sentence_pairs_labels, dtype=torch.long)
         }
-        
-            
-        
-        
         
         
         
@@ -414,14 +305,7 @@ class Trainer():
             
             
     def train_model(self):
-        # Train on the short sequence length (first 90% of steps by default)
-        print("Training on the short sequence length")
-        if int(self.num_steps*self.per_short_steps) - self.step_ckpt > 0:
-            self.train_model_("gmongaras/BERT_Base_Cased_128_Dataset_Mapped", int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0)
-        
-        # Train on the long sequence length (last 10% of steps by default)
-        print("Training on the long sequence length")
-        self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", self.num_steps-int(self.num_steps*self.per_short_steps) - self.step_ckpt, int(self.num_steps*self.per_short_steps) - self.step_ckpt)
+        self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0)
         
         
         
@@ -477,7 +361,7 @@ class Trainer():
         # Initialize wandb run
         if is_main_process():
             wandb.init(
-                project="Cos_BERT",
+                project="Cos_GPT",
                 name=self.wandb_name,
                 notes=None, # May add notes later
                 
@@ -495,13 +379,9 @@ class Trainer():
             grad_scaler = torch.cuda.amp.GradScaler()
     
         
-        batch_MLM_loss = 0
-        batch_NSP_loss = 0
-        # batch_penalty = 0
         batch_loss = 0
         
-        loss_fct_MLM = nn.CrossEntropyLoss(ignore_index=-100)
-        loss_fct_NSP = nn.CrossEntropyLoss()
+        loss_fct = nn.CrossEntropyLoss(ignore_index=-100)
         
         # Training loop
         for step, batch in enumerate(tqdm(data_loader, initial=self.step_ckpt + step_shift, total=num_steps + step_shift)) if is_main_process() else enumerate(data_loader):
@@ -518,67 +398,47 @@ class Trainer():
             attention_mask = batch["attention_mask"]
             token_type_ids = batch["token_type_ids"]
             labels = batch["labels"]
-            sentence_pairs_labels = batch["sentence_pairs_labels"]
             
-            with torch.autocast(device_type='cuda', dtype=torch.float16) if self.use_amp else nullcontext():
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
                 # Get model predictions
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
                 outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
                 
                 # Losses for the MLM and NSP
-                MLM_loss = loss_fct_MLM(outputs.prediction_logits.view(-1, self.model_ref.config.vocab_size), labels.view(-1).to(outputs.prediction_logits.device))
-                NSP_loss = loss_fct_NSP(outputs.seq_relationship_logits, sentence_pairs_labels.to(outputs.seq_relationship_logits.device))
+                loss = loss_fct(outputs.logits.view(-1, self.model_ref.config.vocab_size), labels.view(-1).to(outputs.logits.device))
                 
-                # Penalty: ReLU[(L2(output) - L2(input))]
-                # token level
-                # penalty = torch.stack([
-                #     torch.nn.functional.relu(((out_vals**2).sum(-1)**0.5) - ((in_vals**2).sum(-1)**0.5)).mean()
-                #     for in_vals, out_vals in outputs.attentions
-                # ]).mean() if step % 10 == 0 else torch.tensor(0, dtype=torch.float, device=self.model.device)
-                # sentence level (less strict)
-                # penalty = torch.stack([
-                #     (((out_vals**2).sum(-1)**0.5).mean(-1) - ((in_vals**2).sum(-1)**0.5).mean(-1)).relu().mean()
-                #     for in_vals, out_vals in outputs.attentions
-                # ]).mean()
+                # Backpropagate loss
+                if self.use_amp:
+                    grad_scaler.scale(loss).backward()
+                else:
+                    loss.backward()
+                    
+                # Clip gradients
+                if self.use_amp:
+                    grad_scaler.unscale_(self.optimizer)
+                if self.clipping_value is not None:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clipping_value)
                 
-                # Total loss
-                loss = MLM_loss + NSP_loss# + 0.01*penalty
+                # Take optimizer step
+                if self.use_amp:
+                    grad_scaler.step(self.optimizer)
+                else:
+                    self.optimizer.step()
                 
-            # Backpropagate loss
-            if self.use_amp:
-                grad_scaler.scale(loss).backward()
-            else:
-                loss.backward()
+                # Update scheduler
+                self.scheduler.step(step+self.step_ckpt+step_shift)
                 
-            # Clip gradients
-            if self.use_amp:
-                grad_scaler.unscale_(self.optimizer)
-            if self.clipping_value is not None:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clipping_value)
-            
-            # Take optimizer step
-            if self.use_amp:
-                grad_scaler.step(self.optimizer)
-            else:
-                self.optimizer.step()
-            
-            # Update scheduler
-            self.scheduler.step(step+self.step_ckpt+step_shift)
-            
-            # Step the gradient scaler
-            if self.use_amp:
-                grad_scaler.update()
-            
-            # Zero gradients
-            self.optimizer.zero_grad()
+                # Step the gradient scaler
+                if self.use_amp:
+                    grad_scaler.update()
+                
+                # Zero gradients
+                self.optimizer.zero_grad()
             
             
             
-            # Update batch losses
-            batch_MLM_loss += MLM_loss.item()/self.log_steps
-            batch_NSP_loss += NSP_loss.item()/self.log_steps
-            # batch_penalty = penalty.item()/self.log_steps
+            # Update batch loss
             batch_loss += loss.item()/self.log_steps
             
             
@@ -588,22 +448,12 @@ class Trainer():
             if (step+self.step_ckpt) % self.log_steps == 0:
                 if is_main_process():
                     wandb.log({
-                        "MLM loss": batch_MLM_loss,
-                        "NSP loss": batch_NSP_loss,
-                        # "penalty": batch_penalty,
                         "loss": batch_loss,
                         "lr": self.optimizer.param_groups[0]['lr'],
                     },
                     step=step+self.step_ckpt+step_shift)
                 
-                batch_MLM_loss = 0
-                batch_NSP_loss = 0
-                # batch_penalty = 0
                 batch_loss = 0
-                
-                # if is_main_process():
-                #     for i in range(0, len(outputs.attentions)):
-                #         wandb.log({f"attn{i}": wandb.Histogram(torch.norm(outputs.attentions[i], dim=-1).cpu().detach().float().numpy())})
             
             # Break if we have reached the max number of steps
             if (step+self.step_ckpt) >= self.num_steps:
@@ -710,7 +560,7 @@ class Trainer():
             
     def finetune(self):
         # Cache dirs
-        cache_path = "BERT_Trainer/data_cache/dataset_ft_mapped"
+        cache_path = "GPT_Trainer/data_cache/dataset_ft_mapped"
         
         # Load in datasets
         if not os.path.exists(cache_path):
@@ -760,7 +610,7 @@ class Trainer():
         # Initialize wandb run
         if is_main_process():
             wandb.init(
-                project="Cos_BERT_Finetune",
+                project="Cos_GPT_Finetune",
                 name=self.wandb_name,
                 notes=None, # May add notes later
             )
@@ -1016,9 +866,9 @@ class Trainer():
     def load_checkpoint(self, checkpoint_path):
         # Load the model
         if self.finetune_:
-            self.model = transformers.BertForSequenceClassification.from_pretrained(checkpoint_path.replace(" ", "_"))
+            self.model = transformers.GPTJForCausalLM.from_pretrained(checkpoint_path.replace(" ", "_"))
         else:
-            self.model = transformers.BertForPreTraining.from_pretrained(checkpoint_path.replace(" ", "_"))
+            self.model = transformers.GPTJForCausalLM.from_pretrained(checkpoint_path.replace(" ", "_"))
         
         # Load the config
         config = torch.load(os.path.join(checkpoint_path, "config.pt"))
@@ -1037,37 +887,32 @@ class Trainer():
             self.wandb_id = config["wandb_id"]
         self.attention_type = config["attention_type"]
         
-        # Replace all self attention layers (BertSelfAttention) with the cosine attention layer (BertCosAttention)
+        # Replace all self attention layers (BertSelfAttention) with the cosine attention layer (GPTCosAttention)
         if self.attention_type == "cos":
-            for layer in self.model.bert.encoder.layer:
-                old = layer.attention.self
-                layer.attention.self = BertCosAttention(self.model.config).to(layer.attention.self.query.weight.device)
+            for layer in self.model.transformer.h:
+                old = layer.attn
+                layer.attn = GPTCosAttention(self.model.config).to(layer.attn.q_proj.weight.device)
                 
                 # Copy weights
-                layer.attention.self.query.weight.data = old.query.weight.data
-                layer.attention.self.query.bias.data = old.query.bias.data
-                layer.attention.self.key.weight.data = old.key.weight.data
-                layer.attention.self.key.bias.data = old.key.bias.data
-                layer.attention.self.value.weight.data = old.value.weight.data
-                layer.attention.self.value.bias.data = old.value.bias.data
+                layer.attn.q_proj.weight.data = old.query.weight.data
+                layer.attn.q_proj.bias.data = old.query.bias.data if old.query.bias is not None else None
+                layer.attn.k_proj.weight.data = old.key.weight.data
+                layer.attn.k_proj.bias.data = old.key.bias.data if old.key.bias is not None else None
+                layer.attn.v_proj.weight.data = old.value.weight.data
+                layer.attn.v_proj.bias.data = old.value.bias.data if old.value.bias is not None else None
+                layer.attn.out_proj.weight.data = old.out.weight.data
+                layer.attn.out_proj.bias.data = old.out.bias.data if old.out.bias is not None else None
                 
                 del old
                 
             # Load extra params if needed
-            self.model.load_state_dict(torch.load(checkpoint_path.replace(" ", "_") + "/pytorch_model.bin", map_location=self.model.bert.encoder.layer[0].attention.self.query.weight.device), strict=False)
+            self.model.load_state_dict(torch.load(checkpoint_path.replace(" ", "_") + "/pytorch_model.bin", map_location=self.model.transformer.h[0].attn.q_proj.weight.device), strict=False)
             
             # Clear cache
             torch.cuda.empty_cache()
         
         # Load the tokenizer
-        self.tokenizer = torch.load(os.path.join(checkpoint_path, "tokenizer.pt"))
-        
-        
-        # # Extra params for finetuning
-        # if self.finetune_:
-        #     # Freeze the MLM and NSP heads
-        #     for param in self.model.cls.parameters():
-        #         param.requires_grad = False                
+        self.tokenizer = torch.load(os.path.join(checkpoint_path, "tokenizer.pt"))             
             
             
         # Put the model on the desired device
@@ -1098,45 +943,6 @@ class Trainer():
             
         # New optimizer if finetuning
         if self.finetune_:
-            # Dataset to number mapping
-            self.dataset_name_to_num = {
-                "cola": 0,
-                "mnli": 1,
-                "mnli_matched_validation": 1,
-                "mnli_mismatched_validation": 1,
-                "mrpc": 2,
-                "qnli": 3,
-                "qqp": 4,
-                "rte": 5,
-                "sst2": 6,
-                "stsb": 7,
-                "wnli": 8,
-            }
-            self.num_to_dataset_name = {v: k for k, v in self.dataset_name_to_num.items()}
-            
-            # Assert that the task is valid
-            assert self.finetune_task in self.dataset_name_to_num, f"Invalid finetune task {self.finetune_task}"
-            
-            # Heads for finetuning tasks
-            if self.finetune_task == "cola":
-                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "mnli":
-                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 3, device=self.model.device)
-            elif self.finetune_task == "mrpc":
-                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "qnli":
-                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "qqp":
-                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "rte":
-                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "sst2":
-                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
-            elif self.finetune_task == "stsb":
-                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 1, device=self.model.device)
-            elif self.finetune_task == "wnli":
-                self.model.classifier = nn.Linear(self.model_ref.config.hidden_size, 2, device=self.model.device)
-            
             # Initialize optimizer
             self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, betas=(0.9, 0.999), weight_decay=self.weight_decay, eps=1e-7)
             

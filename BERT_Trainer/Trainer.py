@@ -504,7 +504,7 @@ class Trainer():
         loss_fct_NSP = nn.CrossEntropyLoss()
         
         # Training loop
-        for step, batch in enumerate(tqdm(data_loader, initial=self.step_ckpt + step_shift, total=num_steps + step_shift)) if is_main_process() else enumerate(data_loader):
+        for step, batch in enumerate(tqdm(data_loader, initial=self.step_ckpt + step_shift, total=self.step_ckpt + num_steps + step_shift)) if is_main_process() else enumerate(data_loader):
             # Set the epoch number for the dataloader to seed the
             # randomization of the sampler
             # if self.dev != "cpu":
@@ -520,7 +520,7 @@ class Trainer():
             labels = batch["labels"]
             sentence_pairs_labels = batch["sentence_pairs_labels"]
             
-            with torch.autocast(device_type='cuda', dtype=torch.float16) if self.use_amp else nullcontext():
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
                 # Get model predictions
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)

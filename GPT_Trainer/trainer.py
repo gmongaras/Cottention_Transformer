@@ -3,7 +3,7 @@ import datasets
 import os
 import transformers
 try:
-    from BERT_Trainer.Trainer import Trainer
+    from GPT_Trainer.Trainer import Trainer
 except ModuleNotFoundError:
     from Trainer import Trainer
 
@@ -12,7 +12,7 @@ except ModuleNotFoundError:
 
 def main():
     # Create the model trainer
-    batch_size=256
+    batch_size=64
     learning_rate=1e-4
     warmup_steps=10_000
     num_steps=1_000_000
@@ -20,7 +20,7 @@ def main():
     wandb_name="redo_lr1e-4_SM_ShortSeqLenBeg"
     log_steps=10
     use_amp=True
-    attention_type="soft"
+    attention_type="cos"
     clipping_value=None
     weight_decay=0.01
     model_save_path = "models/redo_lr1e-4_SM_ShortSeqLenBeg"

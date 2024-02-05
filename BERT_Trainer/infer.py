@@ -23,7 +23,7 @@ def infer():
     # model_path = "models/SM AdamW"
     # attention_type = "soft"
     # model_path = "models/redo_lr1e-4_SM"
-    model_path = "models/redo_lr1e-4_Cos_Div"
+    model_path = "models/redo_lr1e-4_Cos_DivLearnLength"
     attention_type = "cos"
     
     
