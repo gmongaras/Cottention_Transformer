@@ -1,0 +1,50 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "/usr/local/cuda/bin/nvcc",
+            "args": [
+                "-g",
+                "-G",
+                "-std=c++17",
+                // Include directories
+                "-I/home/gmongaras/miniconda3/include/python3.10/",
+                // "-I/home/gmongaras/miniconda3/lib/python3.10/site-packages/pybind11/include/pybind11/",
+                "-I/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/lib",
+                "-I/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include",
+                "-I/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/torch/csrc/",
+                "-I/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/torch/csrc/api/include/",
+                "-I/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/pybind11/",
+                "-I/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/c10/",
+                "-I/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/pybind11/detail/",
+                // Input file
+                "${workspaceFolder}/cu_code.cu",
+                // Output file
+                "-o", "${workspaceFolder}/a.out",
+                // Python library path
+                "-L/home/gmongaras/miniconda3/envs/baseEnv/lib/",
+                // Python library
+                "-lpython3.10",
+                // Pybind11 library
+                // "-L/home/gmongaras/miniconda3/lib/python3.10/site-packages/pybind11/include/pybind11/",
+                "-L/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/pybind11/",
+                "-L/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/pybind11/detail/",
+                // PyTorch library paths
+                "-L/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/lib",
+                "-L/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/torch/csrc/",
+                "-L/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/torch/csrc/api/include/",
+                "-L/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/c10/",
+                // PyTorch and other necessary libraries
+                "-ltorch", "-ltorch_cpu", "-lc10", "-ltorch_cuda", "-lcaffe2_nvrtc",
+                "-D_GLIBCXX_USE_CXX11_ABI=0",
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
