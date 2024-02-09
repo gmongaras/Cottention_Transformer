@@ -1,82 +1,3 @@
-// #include <cuda_runtime.h>
-// #include <cublas_v2.h>
-// #include <torch/extension.h>
-
-// // template<typename T>
-// // void compute_and_contract_cuda_impl(const T* A, const T* B, const T* C, T* output, int N, int H, int S, int D);
-
-// // // Define the wrapper function to call the kernel
-// // void compute_and_contract_cuda(const torch::Tensor& A, const torch::Tensor& B, const torch::Tensor& C, torch::Tensor& output) {
-// //     // Extract tensor dimensions and call the template function
-// //     auto N = A.size(0);
-// //     auto H = A.size(1);
-// //     auto S = A.size(2);
-// //     auto D = A.size(3);
-
-// //     AT_DISPATCH_FLOATING_TYPES(A.type(), "compute_and_contract_cuda", ([&] {
-// //         compute_and_contract_cuda_impl<scalar_t>(
-// //             A.data_ptr<scalar_t>(),
-// //             B.data_ptr<scalar_t>(),
-// //             C.data_ptr<scalar_t>(),
-// //             output.data_ptr<scalar_t>(),
-// //             N, H, S, D);
-// //     }));
-// // }
-
-// template<typename T>
-// __global__ void compute_and_contract_kernel(
-//     const T* __restrict__ A, const T* __restrict__ B, const T* __restrict__ C,
-//     T* __restrict__ output, int N, int H, int S, int D) {
-//     extern __shared__ T sharedMem[];
-
-//     int b = blockIdx.x; // Batch index
-//     int h = blockIdx.y; // Head index
-//     int s = blockIdx.z; // Sequence index
-//     int d = threadIdx.x; // Dimension index
-
-//     if (b < N && h < H && s < S && d < D) {
-//         // Compute cumulative product directly
-//         T cumProd = 0;
-//         for (int k = 0; k <= d; ++k) {
-//             int idxA = b * H * S * D + h * S * D + s * D + k;
-//             int idxB = b * H * S * D + h * S * D + k * S + s; // Transpose S and D for B
-//             cumProd += A[idxA] * B[idxB];
-//         }
-
-//         // Store cumulative product in shared memory for reduction
-//         sharedMem[threadIdx.x] = cumProd;
-//         __syncthreads();
-
-//         // Reduction within a block to compute the final output
-//         // Assuming D is a power of 2 for simplicity. For non-power of 2, additional handling is needed.
-//         for (int stride = D / 2; stride > 0; stride >>= 1) {
-//             if (d < stride) {
-//                 sharedMem[d] += sharedMem[d + stride];
-//             }
-//             __syncthreads();
-//         }
-
-//         // Use the result of reduction to compute the final tensor contraction with C
-//         if (d == 0) {
-//             int idxC = b * H * S * D + h * S * D + s * D; // Index for C
-//             int idxOutput = b * H * S * D + h * S * D + s * D; // Index for output
-//             output[idxOutput] = sharedMem[0] * C[idxC];
-//         }
-//     }
-// }
-
-// template<typename T>
-// void compute_and_contract(
-//     const T* A, const T* B, const T* C, T* output,
-//     int N, int H, int S, int D,
-//     cudaStream_t stream = 0) {
-//     dim3 grid(N, H, S);
-//     int threads = D;
-//     int sharedMemSize = D * sizeof(T);
-//     compute_and_contract_kernel<<<grid, threads, sharedMemSize, stream>>>(A, B, C, output, N, H, S, D);
-// }
-
-
 #include <cuda_runtime.h> // For cudaMemcpy and cudaFree
 #include <torch/torch.h>
 // #include <torch/extension.h>
@@ -132,58 +53,6 @@ void writeTensorToFile(const std::string& filename, const T* tensorData, const s
 
 
 // Used to do (K.unsqueeze(-1)*V.unsqueeze(-2))
-// template<typename T>
-// __global__ void compute_outer_product_kernel(
-//     const T* K, const T* V, T* KV,
-//     int N, int H, int S, int d_K, int d_V) {
-//     int n = blockIdx.x; // Batch index
-//     int h = blockIdx.y; // Head index
-//     int s = blockIdx.z; // Sequence index
-//     int d_k = threadIdx.x / d_V; // Dimension index for K
-//     int d_v = threadIdx.x % d_V; // Dimension index for V
-
-//     // Ensure we are within bounds since d_k and d_v are derived from threadIdx.x
-//     if (d_k < d_K && d_v < d_V) {
-//         // Compute linear indices for K and V
-//         int indexK = ((n * H + h) * S + s) * d_K + d_k;
-//         int indexV = ((n * H + h) * S + s) * d_V + d_v;
-
-//         // Compute the index for KV
-//         int indexKV = ((((n * H + h) * S + s) * d_K) + d_k) * d_V + d_v;
-
-//         // Perform the multiplication
-//         KV[indexKV] = K[indexK] * V[indexV];
-//     }
-// }
-// template<typename T>
-// void compute_outer_product(
-//     const T* K, const T* V, T* KV,
-//     int N, int H, int S, int d_K, int d_V,
-//     cudaStream_t stream = 0) {
-//     // Calculate the number of blocks and threads for the outer product kernel
-//     dim3 grid(N, H, S);
-//     int threadsPerBlock = d_K * d_V; // This might need adjustment based on hardware limits
-
-//     // Ensure we do not exceed the maximum number of threads per block
-//     if (threadsPerBlock > 1024) {
-//         // Handle error or adjust grid and block dimensions
-//         std::cerr << "Error: Number of threads per block exceeds hardware limit." << std::endl;
-//         return;
-//     }
-
-//     writeTensorToFile("K.bin", K, {N, H, S, d_K, 1});
-//     writeTensorToFile("V.bin", V, {N, H, S, 1, d_V});
-
-//     // Launch the outer product kernel
-//     compute_outer_product_kernel<T><<<grid, threadsPerBlock, 0, stream>>>(K, V, KV, N, H, S, d_K, d_V);
-
-//     writeTensorToFile("KV.bin", KV, {N, H, S, d_K, d_V});
-
-//     return;
-// }
-
-
-
 template<typename T>
 __global__ void compute_outer_product_kernel(
     const T* K, const T* V, T* KV,
@@ -192,21 +61,36 @@ __global__ void compute_outer_product_kernel(
     int h = blockIdx.y; // Head index
     int s = blockIdx.z; // Sequence index
 
+    // Each thread handles a portion of the elements in KV
     int threadsPerBlock = blockDim.x;
+
+    // Calculate the number of elements in KV
     int numElements = d_K * d_V;
+
+    // Calculate the number of elements per thread.
     int elementsPerThread = (numElements + threadsPerBlock - 1) / threadsPerBlock;
+
+    // Calculate the start and end indices for the thread
     int startIdx = threadIdx.x * elementsPerThread;
+
+    // Ensure the end index does not exceed the number of elements
     int endIdx = min(startIdx + elementsPerThread, numElements);
 
+    // Loop over the elements this thread is responsible for
     for (int idx = startIdx; idx < endIdx; ++idx) {
         int d_k = idx / d_V; // Dimension index for K
         int d_v = idx % d_V; // Dimension index for V
 
+        // Ensure we are within bounds since d_k and d_v are derived from threadIdx.x
         if (d_k < d_K && d_v < d_V) {
-            int indexK = ((n * H + h) * S + s) * d_K + d_k;
-            int indexV = ((n * H + h) * S + s) * d_V + d_v;
-            int indexKV = ((((n * H + h) * S + s) * d_K) + d_k) * d_V + d_v;
+            // Compute indices for K, V, and KV
+            // Index is as follows: (N, H, S, ...) -> ((n * H + h) * S + s) * ...
+            int indexK = ((n * H + h) * S + s) * d_K + d_k; // (N, H, S, d_K)
+            int indexV = ((n * H + h) * S + s) * d_V + d_v; // (N, H, S, d_V)
+            int indexKV = ((((n * H + h) * S + s) * d_K) + d_k) * d_V + d_v; // (N, H, S, d_K, d_V)
 
+            // Value at (N, H, s, d_K, d_V) = (N, H, s, d_K) * (N, H, s, d_V)
+            // where d is varies
             KV[indexKV] = K[indexK] * V[indexV];
         }
     }
@@ -227,13 +111,6 @@ void compute_outer_product(
     // Ensure kernel execution completes before copying data
     cudaDeviceSynchronize();
 
-    writeTensorToFile("K.bin", K, {N, H, S, d_K, 1});
-    writeTensorToFile("V.bin", V, {N, H, S, 1, d_V});
-    writeTensorToFile("KV.bin", KV, {N, H, S, d_K, d_V});
-
-    // Kill the program
-    std::exit(0);
-
     return;
 }
 
@@ -241,76 +118,104 @@ void compute_outer_product(
 
 
 
-// template<typename T>
-// void compute_outer_product(
-//     const T* K, const T* V, T* KV,
-//     int N, int H, int S, int D,
-//     cudaStream_t stream = 0) {
-//     // Unsqueeze K along the last dimension and V along the second-to-last dimension
-//     K = K.unsqueeze(-1);
-//     V = V.unsqueeze(-2);
 
-//     // Calculate the number of blocks for the outer product kernel
-//     dim3 grid(N, H, S);
-//     int threads = D;
 
-//     // Call the outer product kernel
-//     compute_outer_product_kernel<<<grid, threads, 0, stream>>>(K, V, KV, N, H, S, D);
-// }
 
 
 
 
 // Used to do (K.unsqueeze(-1)*V.unsqueeze(-2)).cumsum(2)
 template<typename T>
-__global__ void compute_cumsum_over_S_kernel(
-    T* __restrict__ KV, // KV is both input and output
-    int N, int H, int S, int D) {
-    int b = blockIdx.x; // Batch index
+__global__ void cumsum_over_s_kernel(
+    T* KV, int N, int H, int S, int d_K, int d_V) {
+    int n = blockIdx.x; // Batch index
     int h = blockIdx.y; // Head index
-    int d1 = blockIdx.z / D; // Dimension index for the first D
-    int d2 = blockIdx.z % D; // Dimension index for the second D
-    int s = threadIdx.x; // Sequence index, used for cumsum
+    int d_k = threadIdx.x; // Assuming d_K <= max threads per block
+    int d_v = threadIdx.y; // Assuming d_V <= max threads per block
 
-    if (b < N && h < H && d1 < D && d2 < D && s < S) {
-        int baseIdx = b * H * S * D * D + h * S * D * D + d1 * D * D + d2;
-        T sum = 0;
-        for (int seq = 0; seq <= s; ++seq) {
-            int idx = baseIdx + seq * D * D;
-            sum += KV[idx];
-            KV[idx] = sum; // Store the cumsum back into KV
+    // Ensure we are within bounds since d_k and d_v are derived from threadIdx.x and threadIdx.y
+    if (d_k < d_K && d_v < d_V) {
+        // Loop over the sequence dimension to compute the cumulative sum
+        for (int s = 1; s < S; ++s) {
+            int idx = ((((n * H + h) * S + s) * d_K + d_k) * d_V + d_v);
+            int prev_idx = ((((n * H + h) * S + (s - 1)) * d_K + d_k) * d_V + d_v);
+            KV[idx] += KV[prev_idx];
         }
     }
 }
-
-
-
-
-
-
-// Compute the product of VK with Q: torch.einsum("bsD,bsdD->bsd", Q, VK)
 template<typename T>
-__global__ void matrix_vector_multiply_sum_kernel(
-    const T* __restrict__ Q, const T* __restrict__ VK, T* __restrict__ output,
-    int N, int H, int S, int D) {
-    int b = blockIdx.x; // Batch index
-    int h = blockIdx.y; // Head index
-    int s = blockIdx.z; // Sequence index
-    int d = threadIdx.x; // Dimension index in the output and Q
+void cumsum_over_s(
+    T* KV, int N, int H, int S, int d_K, int d_V,
+    cudaStream_t stream = 0) {
+    // Define the number of blocks and threads
+    dim3 blocks(N, H);
+    dim3 threads(d_K, d_V); // Ensure d_K and d_V do not exceed the maximum threads per block
 
-    if (b < N && h < H && s < S && d < D) {
+    // Launch the kernel
+    cumsum_over_s_kernel<T><<<blocks, threads, 0, stream>>>(KV, N, H, S, d_K, d_V);
+
+    // Optionally synchronize
+    cudaDeviceSynchronize();
+}
+
+
+
+
+
+
+
+
+
+// Compute the product of VK with Q: torch.einsum("bhsD,bhsdD->bhsd", Q, VK)
+template<typename T>
+__global__ void dot_product_over_D_kernel(
+    const T* Q, const T* VK, T* output,
+    int N, int H, int S, int d, int D) {
+    int n = blockIdx.x; // Batch index
+    int h = blockIdx.y; // Head index
+    int s = blockIdx.z / d; // Sequence index
+    int d_idx = blockIdx.z % d; // Dimension index for d
+
+    if (d_idx < d && s < S && h < H && n < N) {
         T sum = 0;
-        int idxQ = b * H * S * D + h * S * D + s * D + d;
-        int baseIdxVK = b * H * S * D * D + h * S * D * D + s * D * D + d;
-        
-        for (int i = 0; i < D; ++i) {
-            int idxVK = baseIdxVK + i * D; // Move across the last D dimension in VK
-            sum += Q[idxQ] * VK[idxVK];
+        for (int D_idx = 0; D_idx < D; ++D_idx) {
+            int Q_index = ((n * H + h) * S + s) * D + D_idx;
+            int VK_index = ((((n * H + h) * S + s) * d + d_idx) * D + D_idx);
+            sum += Q[Q_index] * VK[VK_index];
         }
-        int idxOutput = b * H * S * D + h * S * D + s * D + d;
-        output[idxOutput] = sum;
+        int output_index = (((n * H + h) * S + s) * d + d_idx);
+        output[output_index] = sum;
     }
 }
+template<typename T>
+void dot_product_over_D(
+    const T* Q, const T* VK, T* output,
+    int N, int H, int S, int d, int D,
+    cudaStream_t stream = 0) {
+    writeTensorToFile("Q.bin", Q, {N, H, S, D});
+    writeTensorToFile("KV.bin", VK, {N, H, S, d, D});
+
+    // Calculate the total number of elements in the output tensor
+    int totalElements = N * H * S * d;
+    
+    // Define the number of blocks and threads
+    // Assuming each thread block handles one (n, h, s, d) combination
+    int threadsPerBlock = 1; // Single thread per combination for simplicity
+    int numBlocks = (totalElements + threadsPerBlock - 1) / threadsPerBlock;
+    
+    // Adjusted to launch one block for each (n, h, s, d) combination explicitly
+    dim3 blocks(N, H, S * d);
+
+    // Launch the kernel
+    dot_product_over_D_kernel<T><<<blocks, threadsPerBlock, 0, stream>>>(Q, VK, output, N, H, S, d, D);
+
+    writeTensorToFile("output.bin", output, {N, H, S, D});
+
+    // Optionally synchronize (or handle it outside this function)
+    cudaDeviceSynchronize();
+}
+
+
 
 
 
@@ -332,21 +237,12 @@ void compute_and_contract(
 
 
     // Compute the cumsum over S for KV: (K.unsqueeze(-1) * V.unsqueeze(-2)).cumsum(2)
-    // Calculate the number of blocks for the cumsum kernel
-    dim3 gridCumsum(N, H, D * D);
-    int threadsCumsum = S;
-    // Make sure S does not exceed the maximum number of threads per block
-    // If S is larger, you'll need to adjust the strategy for cumsum calculation
-    compute_cumsum_over_S_kernel<<<gridCumsum, threadsCumsum, 0, stream>>>(KV, N, H, S, D);
+    cumsum_over_s(KV, N, H, S, D, D, stream);
 
 
 
     // Compute the product of VK with Q: torch.einsum("bsD,bsdD->bsd", Q, VK)
-    // Calculate matrix-vector multiplication and summation
-    dim3 gridMulti(N, H, S);
-    int threadsMulti = D;
-    matrix_vector_multiply_sum_kernel<<<gridMulti, threadsMulti, 0, stream>>>(Q, KV, output, N, H, S, D);
-
+    dot_product_over_D(Q, KV, output, N, H, S, D, D, stream);
 
 
     cudaFree(KV);

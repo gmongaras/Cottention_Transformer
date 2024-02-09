@@ -11,10 +11,10 @@ def read_tensor_from_file(filename):
 
 
 # Load the tensors
-K = read_tensor_from_file('K.bin')
-V = read_tensor_from_file('V.bin')
+# K = read_tensor_from_file('K.bin')
+# V = read_tensor_from_file('V.bin')
+Q = read_tensor_from_file('Q.bin')
 KV = read_tensor_from_file('KV.bin')
+output = read_tensor_from_file('output.bin')
 
-print("K shape:", K.shape)
-print("V shape:", V.shape)
-print("KV shape:", KV.shape)
+print()
