@@ -42,7 +42,8 @@
             "request": "launch",
 
 
-            "program": "test.py",
+            // "program": "test.py",
+            "program": "${file}",
 
 
             "console": "integratedTerminal",

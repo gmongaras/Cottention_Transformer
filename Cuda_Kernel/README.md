@@ -1,0 +1,1 @@
+pip uninstall custom_op -y;python setup.py install

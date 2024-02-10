@@ -11,17 +11,20 @@ def method1(Q, K, V, mask):
     QK = QK / torch.sqrt(torch.tensor(D).float())
     QK = QK.masked_fill(mask == 0, float('-inf'))
     QK = torch.nn.functional.softmax(QK, dim=-1)
-    return torch.matmul(QK, V)
+    output = torch.matmul(QK, V)
+    return output
 
 # Method 2
 def method2(Q, K, V, mask):
     Q_ = Q#torch.nn.functional.normalize(Q, p=2, dim=-1)
     K_ = K#torch.nn.functional.normalize(K, p=2, dim=-1)
     QK = torch.matmul(Q_, K_.transpose(-2, -1)).masked_fill(mask == 0, 0)
-    return torch.matmul(QK, V)
+    output = torch.matmul(QK, V)
+    return output
 def method2_(Q, K, V, mask):
     QK = torch.matmul(Q, K.transpose(-2, -1)).masked_fill(mask == 0, 0)
-    return torch.matmul(QK, V)
+    output = torch.matmul(QK, V)
+    return output
 
 # # Method 3
 # def method3(Q, K, V, mask):
@@ -45,7 +48,8 @@ def method3(Q, K, V, mask):
             torch.einsum("bDS,bSd->bDd", V_[:, :, :i+1], K[:, :i+1, :])
             )
     VK = torch.stack(VK)
-    return torch.einsum("bsD,sbdD->bsd", Q, VK)
+    output = torch.einsum("bsD,sbdD->bsd", Q, VK)
+    return output
 
 
 # Method 4
@@ -56,7 +60,8 @@ def method4(Q, K, V, mask):
     VK_ = V_ * K_
     for i in range(0, S):
         VK[i] = VK_[:, :, :i+1, :].sum(2)
-    return torch.einsum("bsD,sbdD->bsd", Q, VK)
+    output = torch.einsum("bsD,sbdD->bsd", Q, VK)
+    return output
 
 # Method 5
 def method5(Q, K, V, mask):
@@ -64,7 +69,8 @@ def method5(Q, K, V, mask):
     # return torch.einsum("bsD,bdsD->bsd", Q, VK)
     
     VK = (V.unsqueeze(-1) * K.unsqueeze(2)).cumsum(1)
-    return torch.einsum("bsD,bsdD->bsd", Q, VK)
+    output = torch.einsum("bsD,bsdD->bsd", Q, VK)
+    return output
     # return (VK * Q.unsqueeze(-2)).sum(-1)
 
 
@@ -94,14 +100,13 @@ def method5(Q, K, V, mask):
 #     return torch.einsum("bsD,bdsD->bsd", Q, VK)
 
 # Method 5
-def method5(Q, K, V, mask):
-    // python setup.py install
+def method6(Q, K, V, mask):
     Q = Q.unsqueeze(1)
     K = K.unsqueeze(1)
     V = V.unsqueeze(1)
     output = torch.empty_like(Q).cuda()  # Prepare an output tensor
     custom_op.compute_and_contract(Q, K, V, output)
-    print()
+    # print()
     
     # VK = (V.unsqueeze(-1).transpose(1, 2) * K.unsqueeze(1)).cumsum(2)
     # return torch.einsum("bsD,bdsD->bsd", Q, VK)
@@ -121,7 +126,7 @@ def method5(Q, K, V, mask):
 # Time the methods
 import timeit
 Q, K, V = torch.rand(N, S, D).cuda(), torch.rand(N, S, D).cuda(), torch.rand(N, S, D).cuda()
-mask = torch.tril(torch.ones(S, S)).view(1, 1, S, S).cuda()
+mask = torch.tril(torch.ones(S, S)).view(1, S, S).cuda()
 # print(timeit.timeit(lambda: method1(Q, K, V, mask), number=1000))
 # print(timeit.timeit(lambda: method2(Q, K, V, mask), number=1000))
 # # print(timeit.timeit(lambda: method3(Q, K, V, mask), number=1000))
@@ -139,8 +144,12 @@ out = method2(Q, K, V, mask)
 print("Method 2:", time.time() - start)
 
 start = time.time()
-method5(Q, K, V, mask)
+out2 = method5(Q, K, V, mask)
 print("Method 5:", time.time() - start)
+
+start = time.time()
+method6(Q, K, V, mask)
+print("Method 6:", time.time() - start)
 
 # Using torch get the GPU memory usage of each function
 import torch
@@ -172,6 +181,15 @@ gc.collect()
 torch.cuda.reset_peak_memory_stats()
 
 method5(Q, K, V, mask)
+print(torch.cuda.memory_allocated())
+print(torch.cuda.memory_cached())
+print(torch.cuda.max_memory_allocated())
+print()
+torch.cuda.empty_cache()
+gc.collect()
+torch.cuda.reset_peak_memory_stats()
+
+method6(Q, K, V, mask)
 print(torch.cuda.memory_allocated())
 print(torch.cuda.memory_cached())
 print(torch.cuda.max_memory_allocated())

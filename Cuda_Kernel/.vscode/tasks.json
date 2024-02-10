@@ -20,7 +20,7 @@
                 "-I/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/c10/",
                 "-I/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/include/pybind11/detail/",
                 // Input file
-                "${workspaceFolder}/cu_code.cu",
+                "${workspaceFolder}/cu_code2.cu",
                 // Output file
                 "-o", "${workspaceFolder}/a.out",
                 // Python library path
