@@ -6,7 +6,7 @@ import custom_op
 class CustomAttention(torch.autograd.Function):
     @staticmethod
     def forward(ctx, Q, K, V):
-        output = torch.empty_like(Q).cuda()  # Prepare an output tensor
+        output = torch.zeros_like(Q).cuda()  # Prepare an output tensor
         custom_op.compute_and_contract(Q, K, V, output)
 
         # Save tensors for backward pass
