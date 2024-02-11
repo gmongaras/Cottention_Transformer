@@ -63,17 +63,14 @@ __global__ void compute_outer_product_kernel(
     int threadId = threadIdx.x;
     int totalThreads = blockDim.x;
 
+    int NH = (n * H + h);
+
     for (int idx = threadId; idx < d_V * d_K; idx += totalThreads) {
         int d_v = idx % d_V; // Correct calculation for Dimension index for V
         int d_k = idx / d_V; // Correct calculation for Dimension index for K
 
-        // Compute indices for V, K, and VK
-        int indexV = ((n * H + h) * S + s) * d_V + d_v;
-        int indexK = ((n * H + h) * S + s) * d_K + d_k;
-        int indexVK = ((((n * H + h) * 1 + 0) * d_V) + d_v) * d_K + d_k; // Use s=0 for VK since it's the accumulation target
-
         // Perform the outer product and store in VK directly without addition
-        VK[indexVK] += V[indexV] * K[indexK];
+        VK[(((NH * 1 + 0) * d_V) + d_v) * d_K + d_k] += V[(NH * S + s) * d_V + d_v] * K[(NH * S + s) * d_K + d_k];
     }
 }
 
@@ -88,24 +85,19 @@ __global__ void matrix_multiply_kernel(
     int h = blockIdx.y; // Head index
     int d_v = threadIdx.x; // Dimension index within d_V (output dimension)
 
+    int NH = (n * H + h);
+
     // Ensure we are within bounds for the d_V dimension
     if (d_v < d_V) {
         T sum = 0;
         // Perform the dot product along the D dimension (which corresponds to d_K in VK)
         for (int D_idx = 0; D_idx < d_K; ++D_idx) {
-            // Compute indices for Q and VK. Note that VK does not vary with s,
-            // so we use a fixed sequence index (effectively 0) for VK.
-            int indexQ = ((n * H + h) * S + s) * d_K + D_idx;
-            // For VK, since it's (N, H, 1, d_V, d_K), we don't include 's' in its index calculation
-            int indexVK = (((n * H + h) * 1 + 0) * d_V + d_v) * d_K + D_idx;
-
             // Perform element-wise multiplication and accumulate the sum
-            sum += Q[indexQ] * VK[indexVK];
+            sum += Q[(NH * S + s) * d_K + D_idx] * VK[((NH * 1 + 0) * d_V + d_v) * d_K + D_idx];
         }
 
         // Write the accumulated sum to the output tensor
-        int indexOutput = ((n * H + h) * S + s) * d_V + d_v;
-        output[indexOutput] = sum;
+        output[(NH * S + s) * d_V + d_v] = sum;
     }
 }
 
@@ -143,15 +135,15 @@ void compute_attention(
         // and add the result to VK
         compute_outer_product_kernel<T><<<grid, threadsPerBlock, 0, stream>>>(K, V, VK, N, H, S, d_V, d_K, s);
 
-        // Wait for the kernel to complete
-        cudaDeviceSynchronize();
+        // // Wait for the kernel to complete
+        // cudaDeviceSynchronize();
 
         // Product between Q at position s and VK
         // This is the output for the s-th position in the sequence
         matrix_multiply_kernel<T><<<grid, d_V, 0, stream>>>(Q, VK, output, N, H, S, d_V, d_K, s);
 
-        // Wait for the kernel to complete
-        cudaDeviceSynchronize();
+        // // Wait for the kernel to complete
+        // cudaDeviceSynchronize();
     }
 
     // writeTensorToFile("VK.bin", VK, {N, H, 1, d_V, d_K});
@@ -169,9 +161,6 @@ void compute_and_contract(
     const T* Q, const T* K, const T* V, T* output,
     int N, int H, int S, int D,
     cudaStream_t stream = 0) {
-    int threadsPerBlock = 256; // Example, adjust based on device capabilities
-    int blocksPerGrid = (N * H * S * D + threadsPerBlock - 1) / threadsPerBlock;
-
     compute_attention<T>(Q, K, V, output, N, H, S, D, D, stream);
 }
 

@@ -7,7 +7,7 @@ setup(
         CUDAExtension('custom_op', [
             # 'custom_op_kernel.cu',
             # 'custom_op.cpp',
-            'cu_code2.cu',
+            'cu_code3.cu',
         ]),
     ],
     cmdclass={

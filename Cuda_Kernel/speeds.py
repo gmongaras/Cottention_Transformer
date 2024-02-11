@@ -1,5 +1,6 @@
 import torch
 import custom_op
+from Custom_Kernel import CustomAttention
 
 N = 256
 S = 256
@@ -99,14 +100,18 @@ def method5(Q, K, V, mask):
 #     VK = cumulative_sum_via_convolution(V, K)
 #     return torch.einsum("bsD,bdsD->bsd", Q, VK)
 
-# Method 5
+# Method 6 - custom op
+Attn = CustomAttention.apply
 def method6(Q, K, V, mask):
     Q = Q.unsqueeze(1)
     K = K.unsqueeze(1)
     V = V.unsqueeze(1)
-    output = torch.empty_like(Q).cuda()  # Prepare an output tensor
-    custom_op.compute_and_contract(Q, K, V, output)
+    # output = torch.empty_like(Q).cuda()  # Prepare an output tensor
+    # custom_op.compute_and_contract(Q, K, V, output)
     # print()
+    
+    output = CustomAttention.apply(Q, K, V).squeeze(1)
+    return output
     
     # VK = (V.unsqueeze(-1).transpose(1, 2) * K.unsqueeze(1)).cumsum(2)
     # return torch.einsum("bsD,bdsD->bsd", Q, VK)
@@ -195,9 +200,61 @@ print(torch.cuda.memory_cached())
 print(torch.cuda.max_memory_allocated())
 
 
-# # out1 = method1(Q, K.clone(), V.clone(), mask)
-# out2 = method2_(Q, K, V, mask)
-# # out3 = method3(Q, K, V, mask)
-# # out4 = method4(Q, K, V, mask)
-# out5 = method5(Q, K, V, mask)
-# print()
+
+
+
+
+# Testing backward pass
+print("\n\n\n\n")
+# Method 2
+Q, K, V = torch.rand(N, S, D, requires_grad=True).cuda(), torch.rand(N, S, D, requires_grad=True).cuda(), torch.rand(N, S, D, requires_grad=True).cuda()
+Q2 = Q.clone().detach().requires_grad_(True)
+K2 = K.clone().detach().requires_grad_(True)
+V2 = V.clone().detach().requires_grad_(True)
+method2(Q2, K2, V2, mask).sum().backward()
+print(torch.cuda.memory_allocated())
+print(torch.cuda.memory_cached())
+print(torch.cuda.max_memory_allocated())
+print()
+torch.cuda.empty_cache()
+gc.collect()
+torch.cuda.reset_peak_memory_stats()
+
+# Method 6
+Q6 = Q.clone().detach().requires_grad_(True)
+K6 = K.clone().detach().requires_grad_(True)
+V6 = V.clone().detach().requires_grad_(True)
+method6(Q6, K6, V6, mask).sum().backward()
+print(torch.cuda.memory_allocated())
+print(torch.cuda.memory_cached())
+print(torch.cuda.max_memory_allocated())
+print()
+torch.cuda.empty_cache()
+gc.collect()
+torch.cuda.reset_peak_memory_stats()
+
+assert torch.allclose(Q2.grad, Q6.grad)
+assert torch.allclose(K2.grad, K6.grad)
+assert torch.allclose(V2.grad, V6.grad)
+
+
+# Testing speed of backward pass
+print("\n\n\n\n")
+# Method 2
+Q, K, V = torch.rand(N, S, D, requires_grad=True).cuda(), torch.rand(N, S, D, requires_grad=True).cuda(), torch.rand(N, S, D, requires_grad=True).cuda()
+Q2 = Q.clone().detach().requires_grad_(True)
+K2 = K.clone().detach().requires_grad_(True)
+V2 = V.clone().detach().requires_grad_(True)
+start = time.time()
+method2(Q2, K2, V2, mask).sum().backward()
+print("Method 2:", time.time() - start)
+
+# Method 6
+Q6 = Q.clone().detach().requires_grad_(True)
+K6 = K.clone().detach().requires_grad_(True)
+V6 = V.clone().detach().requires_grad_(True)
+start = time.time()
+method6(Q6, K6, V6, mask).sum().backward()
+print("Method 6:", time.time() - start)
+
+print()
