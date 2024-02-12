@@ -1,13 +1,12 @@
 import torch
-import custom_op
+import FastAttention
 
 
 
 class CustomAttention(torch.autograd.Function):
     @staticmethod
     def forward(ctx, Q, K, V):
-        output = torch.zeros_like(Q).cuda()  # Prepare an output tensor
-        custom_op.compute_and_contract(Q, K, V, output, 3)
+        output = FastAttention.compute_and_contract(Q, K, V, 5)
 
         # Save tensors for backward pass
         ctx.save_for_backward(Q, K, V, output)

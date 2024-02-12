@@ -1,1 +1,1 @@
-pip uninstall custom_op -y;python setup.py install
+pip uninstall FastAttention -y;python setup.py install

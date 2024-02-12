@@ -126,24 +126,13 @@ template<typename T>
 void compute_attention(
     const T* Q, const T* K, const T* V,
     T* output,
+    T* VK,
     int N, int H, int S, int d_V, int d_K,
     const int block_size,
     cudaStream_t stream = 0) {
-    // Grid for the outer product kernel
-    // One block per batch-dimension index and head-dimension index
-    dim3 outer_grid(N, H, d_V);
-
     // Grid for the matrix multiplication kernel
     // One block per batch-dimension index, head-dimension index, and both dimensions of VK
     dim3 grid(N, H, d_V);
-
-    // Intermediate tensor to store the product between V and K
-    // for block_size positions in the sequence.
-    // The shape is (N, H, block_size, d_V, d_K)
-    T* VK;
-    // Initialize to zeros
-    cudaMalloc(&VK, N * H * block_size * d_V * d_K * sizeof(T));
-    cudaMemset(VK, 0, N * H * block_size * d_V * d_K * sizeof(T));
 
     // writeTensorToFile("Q.bin", Q, {N, H, S, d_K});
     // writeTensorToFile("K.bin", K, {N, H, S, d_K});
@@ -161,7 +150,7 @@ void compute_attention(
         //   Threads over the number of blocks and the d_K dimension
         //   No shared memory
         //   Stream is the CUDA stream where the kernel will be executed
-        compute_outer_products<T><<<outer_grid, {BS, d_K}, 0, stream>>>(K, V, VK, N, H, S, d_V, d_K, s, block_size, BS);
+        compute_outer_products<T><<<grid, {BS, d_K}, 0, stream>>>(K, V, VK, N, H, S, d_V, d_K, s, block_size, BS);
 
         // Wait for the kernel to complete
         cudaDeviceSynchronize();
@@ -180,9 +169,6 @@ void compute_attention(
 
     // writeTensorToFile("VK.bin", VK, {N, H, 1, d_V, d_K});
     // writeTensorToFile("output.bin", output, {N, H, S, d_V});
-
-    // Free the intermediate tensor
-    cudaFree(VK);
 }
 
 
@@ -190,11 +176,11 @@ void compute_attention(
 // Wrapper function to orchestrate the computation
 template<typename T>
 void compute_and_contract(
-    const T* Q, const T* K, const T* V, T* output,
+    const T* Q, const T* K, const T* V, T* output, T* VK,
     int N, int H, int S, int D,
     const int block_size,
     cudaStream_t stream = 0) {
-    compute_attention<T>(Q, K, V, output, N, H, S, D, D, block_size, stream);
+    compute_attention<T>(Q, K, V, output, VK, N, H, S, D, D, block_size, stream);
 }
 
 
@@ -206,18 +192,23 @@ void compute_and_contract(
 // void compute_and_contract(const torch::Tensor& A, const torch::Tensor& B, const torch::Tensor& C, torch::Tensor& output);
 
 // C++ interface
-void compute_and_contract_call(const torch::Tensor& Q, const torch::Tensor& K_orig, const torch::Tensor& V_orig, torch::Tensor& output, const int block_size) {
+torch::Tensor compute_and_contract_call(const torch::Tensor& Q, const torch::Tensor& K_orig, const torch::Tensor& V_orig, const int block_size) {
     // Check tensor requirements, e.g., dtype, device, etc.
     TORCH_CHECK(Q.device().is_cuda(), "Q must be a CUDA tensor");
     TORCH_CHECK(K_orig.device().is_cuda(), "K must be a CUDA tensor");
     TORCH_CHECK(V_orig.device().is_cuda(), "V must be a CUDA tensor");
-    TORCH_CHECK(output.device().is_cuda(), "output must be a CUDA tensor");
 
     // Get tensor dimensions
     int N = Q.size(0);
     int H = Q.size(1);
     int S = Q.size(2);
     int D = Q.size(3);
+
+    // Ouput tensor
+    auto output = torch::zeros({N, H, S, D}, Q.options());
+
+    // Allocate memory for the intermediate tensors
+    auto VK = torch::zeros({N, H, block_size, D, D}, Q.options());
 
     // writeTensorToFile("Q.bin", Q.data_ptr<float>(), {N, H, S, D});
     // writeTensorToFile("K.bin", K_orig.data_ptr<float>(), {N, H, S, D});
@@ -233,9 +224,15 @@ void compute_and_contract_call(const torch::Tensor& Q, const torch::Tensor& K_or
         K.data_ptr<float>(),
         V.data_ptr<float>(),
         output.data_ptr<float>(),
+        VK.data_ptr<float>(),
         N, H, S, D, block_size);
 
     // writeTensorToFile("output.bin", output.data_ptr<float>(), {N, H, S, D});
+
+    // Deallocate memory for the intermediate tensors
+    VK.~Tensor();
+
+    return output;
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -269,7 +266,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
 //     // Call the custom CUDA kernel
 //     auto start = std::chrono::high_resolution_clock::now();
-//     compute_and_contract_call(Q, K, V, output);
+//     compute_and_contract_call(Q, K, V, output, 5);
 //     auto end = std::chrono::high_resolution_clock::now();
 //     std::chrono::duration<double> elapsed = end - start;
 //     std::cout << "Elapsed time: " << elapsed.count() << " s\n";
