@@ -9,8 +9,6 @@
 #include <iostream>
 #include <chrono>
 
-#include "scan/scan.cuh"
-
 
 
 
@@ -54,31 +52,36 @@ void writeTensorToFile(const std::string& filename, const T* tensorData, const s
 
 
 
-// Used to do (V.unsqueeze(-1)*K.unsqueeze(-2)) and add it to VK,
-// thus creating a cumsum at s.
+// Used to do (V.unsqueeze(-1)*K.unsqueeze(-2)) for each position in the sequence
 template<typename T>
-__global__ void compute_outer_product_kernel(
+__global__ void compute_outer_products(
     const T* K, const T* V, T* VK,
-    int N, int H, int S, int d_V, int d_K, int s) {
+    int N, int H, int S, int d_V, int d_K, int s, int block_size, int BS) {
     int n = blockIdx.x; // Batch index
     int h = blockIdx.y; // Head index
-    int d_v = blockIdx.z; // Dimension index within d_V (output dimension)
-    int d_k = threadIdx.x; // Dimension index within d_V (output dimension)
-    
+    int d_v = blockIdx.z; // Dimension index within d_V
+    int blk_idx = threadIdx.x; // Dimension index within the sequence
+    int d_k = threadIdx.y; // Dimension index within d_k
 
-    // Each thread handles a portion of the elements in VK
-    int threadId = threadIdx.x;
-    int totalThreads = blockDim.x;
 
     // Ensure we are within bounds for the d_V dimension and d_K dimension
     if (d_v < d_V && d_k < d_K) {
-        // Compute indices for V, K, and VK
-        int indexV = ((n * H + h) * S + s) * d_V + d_v;
-        int indexK = ((n * H + h) * S + s) * d_K + d_k;
-        int indexVK = ((((n * H + h) * 1 + 0) * d_V) + d_v) * d_K + d_k; // Use s=0 for VK since it's the accumulation target
+        // Compute indices for V and K at the current block in the sequence
+        int indexV = ((n * H + h) * S + s + blk_idx) * d_V + d_v;
+        int indexK = ((n * H + h) * S + s + blk_idx) * d_K + d_k;
 
-        // Perform the outer product and add it to VK
-        atomicAdd(&VK[indexVK], V[indexV] * K[indexK]);
+        // Do the outer product between V and K
+        T product = V[indexV] * K[indexK];
+
+        // Iterate over all blocks with a block index greater than this one
+        // and add the product to the VK tensor, thus doing a cumulative sum
+        // in the shared memory.
+        for (int i = blk_idx; i < BS; i++) {
+            int indexVK = ((((n * H + h) * block_size + i) * d_V) + d_v) * d_K + d_k;
+
+            // Add the product to the VK tensor
+            atomicAdd(&VK[indexVK], product);
+        }
     }
 }
 
@@ -87,26 +90,32 @@ __global__ void compute_outer_product_kernel(
 
 template<typename T>
 __global__ void matrix_multiply_kernel(
-    const T* Q, const T* VK, T* output,
-    int N, int H, int S, int d_V, int d_K, int s) {
+    const T* Q, T* VK, T* output,
+    int N, int H, int S, int d_V, int d_K, int s, int block_size, int BS) {
     int n = blockIdx.x; // Batch index
     int h = blockIdx.y; // Head index
-    int d_v = blockIdx.z; // Dimension index within d_V (output dimension)
-    int d_k = threadIdx.x; // Dimension index within d_V (output dimension)
+    int d_v = blockIdx.z; // Dimension index within d_V
+    int blk_idx = threadIdx.x; // Sequence index
+    int d_k = threadIdx.y; // Dimension index within d_K
 
     // Ensure we are within bounds for the d_V dimension and d_K dimension
     if (d_v < d_V && d_k < d_K) {
         // Compute indices for Q and VK. Note that VK does not vary with s,
         // so we use a fixed sequence index (effectively 0) for VK.
-        int indexQ = ((n * H + h) * S + s) * d_K + d_k;
+        int indexQ = ((n * H + h) * S + s + blk_idx) * d_K + d_k;
 
         // For VK, since it's (N, H, 1, d_V, d_K), we don't include 's' in its index calculation
-        int indexVK = (((n * H + h) * 1 + 0) * d_V + d_v) * d_K + d_k;
+        int indexVK = (((n * H + h) * block_size + blk_idx) * d_V + d_v) * d_K + d_k;
 
         // Element-wise multiplication and add to shared memory
         // Write the accumulated sum to the output tensor
-        int indexOutput = ((n * H + h) * S + s) * d_V + d_v;
+        int indexOutput = ((n * H + h) * S + s + blk_idx) * d_V + d_v;
         atomicAdd(&output[indexOutput], Q[indexQ] * VK[indexVK]);
+
+        // Since each position in VK is only access once, we can copy
+        // the contents of the last block to this one.
+        // This ensures the cumulative sum is correct for the next block.
+        VK[indexVK] = VK[(((n * H + h) * block_size + BS-1) * d_V + d_v) * d_K + d_k];
     }
 }
 
@@ -118,6 +127,7 @@ void compute_attention(
     const T* Q, const T* K, const T* V,
     T* output,
     int N, int H, int S, int d_V, int d_K,
+    const int block_size,
     cudaStream_t stream = 0) {
     // Grid for the outer product kernel
     // One block per batch-dimension index and head-dimension index
@@ -128,36 +138,41 @@ void compute_attention(
     dim3 grid(N, H, d_V);
 
     // Intermediate tensor to store the product between V and K
-    // at each position in the sequence
-    // The shape is (N, H, 1, d_V, d_K)
+    // for block_size positions in the sequence.
+    // The shape is (N, H, block_size, d_V, d_K)
     T* VK;
     // Initialize to zeros
-    cudaMalloc(&VK, N * H * 1 * d_V * d_K * sizeof(T));
-    cudaMemset(VK, 0, N * H * 1 * d_V * d_K * sizeof(T));
+    cudaMalloc(&VK, N * H * block_size * d_V * d_K * sizeof(T));
+    cudaMemset(VK, 0, N * H * block_size * d_V * d_K * sizeof(T));
 
     // writeTensorToFile("Q.bin", Q, {N, H, S, d_K});
     // writeTensorToFile("K.bin", K, {N, H, S, d_K});
     // writeTensorToFile("V.bin", V, {N, H, S, d_V});
 
     // Iterate over the sequence dimension and compute the outer product
-    for (int s = 0; s < S; ++s) {
-        // Launch the kernel
-        // This will compute the outer product between V and K at each position in the sequence
-        // and add the result to VK
-        // The order of the input is:
-        //   outer_grid - This is the grid size, one block per batch-dimension index and head-dimension index
-        //   d_K - This is the block size, one thread per dimension index within d_K
-        //   0 - This is the shared memory size, which is not used in this kernel
-        //   stream - This is the CUDA stream where the kernel will be executed
-        compute_outer_product_kernel<T><<<outer_grid, d_K, 0, stream>>>(K, V, VK, N, H, S, d_V, d_K, s);
+    for (int s = 0; s < S; s+=block_size) {
+        // Block size cannot exceed the sequence length
+        int BS = min(block_size, S-s);
+
+        // Compute the cumulative product between V and K
+        // up to block_size positions in the sequence
+        //   Grid over N, H, and value dimension. Assuming the block size is small
+        //      we can use this as the x index in the thread and y as the d_K index
+        //   Threads over the number of blocks and the d_K dimension
+        //   No shared memory
+        //   Stream is the CUDA stream where the kernel will be executed
+        compute_outer_products<T><<<outer_grid, {BS, d_K}, 0, stream>>>(K, V, VK, N, H, S, d_V, d_K, s, block_size, BS);
 
         // Wait for the kernel to complete
         cudaDeviceSynchronize();
 
         // Product between Q at position s and VK
-        // This is the output for the s-th position in the sequence
-        // we want d_K threads per block
-        matrix_multiply_kernel<T><<<grid, d_K, 0, stream>>>(Q, VK, output, N, H, S, d_V, d_K, s);
+        //   Grid over N, H, and value dimension. Assuming the block size is small
+        //      we can use this as the x index in the thread and y as the d_K index
+        //   Threads over the number of blocks and the d_K dimension
+        //   0 - This is the shared memory size, which is not used in this kernel
+        //   stream - This is the CUDA stream where the kernel will be executed
+        matrix_multiply_kernel<T><<<grid, {BS, d_K}, 0, stream>>>(Q, VK, output, N, H, S, d_V, d_K, s, block_size, BS);
 
         // Wait for the kernel to complete
         cudaDeviceSynchronize();
@@ -177,11 +192,9 @@ template<typename T>
 void compute_and_contract(
     const T* Q, const T* K, const T* V, T* output,
     int N, int H, int S, int D,
+    const int block_size,
     cudaStream_t stream = 0) {
-    int threadsPerBlock = 256; // Example, adjust based on device capabilities
-    int blocksPerGrid = (N * H * S * D + threadsPerBlock - 1) / threadsPerBlock;
-
-    compute_attention<T>(Q, K, V, output, N, H, S, D, D, stream);
+    compute_attention<T>(Q, K, V, output, N, H, S, D, D, block_size, stream);
 }
 
 
@@ -193,7 +206,7 @@ void compute_and_contract(
 // void compute_and_contract(const torch::Tensor& A, const torch::Tensor& B, const torch::Tensor& C, torch::Tensor& output);
 
 // C++ interface
-void compute_and_contract_call(const torch::Tensor& Q, const torch::Tensor& K_orig, const torch::Tensor& V_orig, torch::Tensor& output) {
+void compute_and_contract_call(const torch::Tensor& Q, const torch::Tensor& K_orig, const torch::Tensor& V_orig, torch::Tensor& output, const int block_size) {
     // Check tensor requirements, e.g., dtype, device, etc.
     TORCH_CHECK(Q.device().is_cuda(), "Q must be a CUDA tensor");
     TORCH_CHECK(K_orig.device().is_cuda(), "K must be a CUDA tensor");
@@ -220,7 +233,7 @@ void compute_and_contract_call(const torch::Tensor& Q, const torch::Tensor& K_or
         K.data_ptr<float>(),
         V.data_ptr<float>(),
         output.data_ptr<float>(),
-        N, H, S, D);
+        N, H, S, D, block_size);
 
     // writeTensorToFile("output.bin", output.data_ptr<float>(), {N, H, S, D});
 }
@@ -232,34 +245,34 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
 
 
-// Debugging
-#include <iostream>
-#include <chrono>
-// dummy main function
-int main() {
-    // Set the device
-    torch::Device device(torch::kCUDA, 0);
+// // Debugging
+// #include <iostream>
+// #include <chrono>
+// // dummy main function
+// int main() {
+//     // Set the device
+//     torch::Device device(torch::kCUDA, 0);
 
-    // Set the tensor dimensions
-    int N = 16;
-    int H = 8;
-    int S = 64;
-    int D = 32;
+//     // Set the tensor dimensions
+//     int N = 16;
+//     int H = 8;
+//     int S = 64;
+//     int D = 32;
 
-    // Create input tensors
-    auto Q = torch::rand({N, H, S, D}, device);
-    auto K = torch::rand({N, H, S, D}, device);
-    auto V = torch::rand({N, H, S, D}, device);
+//     // Create input tensors
+//     auto Q = torch::rand({N, H, S, D}, device);
+//     auto K = torch::rand({N, H, S, D}, device);
+//     auto V = torch::rand({N, H, S, D}, device);
 
-    // Create output tensor
-    auto output = torch::zeros({N, H, S, D}, device);
+//     // Create output tensor
+//     auto output = torch::zeros({N, H, S, D}, device);
 
-    // Call the custom CUDA kernel
-    auto start = std::chrono::high_resolution_clock::now();
-    compute_and_contract_call(Q, K, V, output);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end - start;
-    std::cout << "Elapsed time: " << elapsed.count() << " s\n";
+//     // Call the custom CUDA kernel
+//     auto start = std::chrono::high_resolution_clock::now();
+//     compute_and_contract_call(Q, K, V, output);
+//     auto end = std::chrono::high_resolution_clock::now();
+//     std::chrono::duration<double> elapsed = end - start;
+//     std::cout << "Elapsed time: " << elapsed.count() << " s\n";
 
-    return 0;
-}
+//     return 0;
+// }
