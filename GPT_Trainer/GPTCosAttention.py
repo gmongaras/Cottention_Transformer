@@ -248,7 +248,7 @@ class GPTCosAttention(nn.Module):
             present = None
 
         # compute self-attention: V x Softmax(QK^T)
-        attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
+        # attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
         
         # compute cosine self-attention: V x Sim(QK^T)
         attn_output, attn_weights = self._cos_attn(query, key, value, attention_mask, head_mask)

@@ -12,25 +12,25 @@ except ModuleNotFoundError:
 
 def main():
     # Create the model trainer
-    batch_size=64
+    batch_size=256
     learning_rate=1e-4
     warmup_steps=10_000
     num_steps=1_000_000
     dev="gpu"
-    wandb_name="redo_lr1e-4_SM_ShortSeqLenBeg"
+    wandb_name="del"
     log_steps=10
     use_amp=True
     attention_type="cos"
     clipping_value=None
     weight_decay=0.01
-    model_save_path = "models/redo_lr1e-4_SM_ShortSeqLenBeg"
+    model_save_path = "models/del"
     # model_save_path = "models/del"
     num_save_steps = 10_000
     keep_dataset_in_mem = False
     
     # Load in a checkpoint
     load_checkpoint = False
-    checkpoint_path = "models/redo_lr1e-4_SM_ShortSeqLenBeg/"
+    checkpoint_path = "models/del/"
     
     trainer = Trainer(
         batch_size=batch_size,
