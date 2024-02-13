@@ -415,13 +415,13 @@ class Trainer():
             
     def train_model(self):
         # Train on the short sequence length (first 90% of steps by default)
-        print("Training on the short sequence length")
+        print("Training on short sequence length")
         if int(self.num_steps*self.per_short_steps) - self.step_ckpt > 0:
-            self.train_model_("gmongaras/BERT_Base_Cased_128_Dataset_Mapped", int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0)
+            self.train_model_("gmongaras/BERT_Base_Cased_128_Dataset_Mapped", max(int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0), self.step_ckpt)
         
         # Train on the long sequence length (last 10% of steps by default)
-        print("Training on the long sequence length")
-        self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", self.num_steps-int(self.num_steps*self.per_short_steps) - self.step_ckpt, int(self.num_steps*self.per_short_steps) - self.step_ckpt)
+        print("Training on long sequence length")
+        self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", self.num_steps-max(int(self.num_steps*self.per_short_steps), self.step_ckpt), max(int(self.num_steps*self.per_short_steps), self.step_ckpt))
         
         
         
@@ -504,7 +504,7 @@ class Trainer():
         loss_fct_NSP = nn.CrossEntropyLoss()
         
         # Training loop
-        for step, batch in enumerate(tqdm(data_loader, initial=self.step_ckpt + step_shift, total=self.step_ckpt + num_steps + step_shift)) if is_main_process() else enumerate(data_loader):
+        for step, batch in enumerate(tqdm(data_loader, initial=step_shift, total=num_steps + step_shift), start=step_shift) if is_main_process() else enumerate(data_loader, start=step_shift):
             # Set the epoch number for the dataloader to seed the
             # randomization of the sampler
             # if self.dev != "cpu":
@@ -564,7 +564,7 @@ class Trainer():
                 self.optimizer.step()
             
             # Update scheduler
-            self.scheduler.step(step+self.step_ckpt+step_shift)
+            self.scheduler.step(step)
             
             # Step the gradient scaler
             if self.use_amp:
@@ -585,7 +585,7 @@ class Trainer():
             
             
             # Log wandb
-            if (step+self.step_ckpt) % self.log_steps == 0:
+            if (step) % self.log_steps == 0:
                 if is_main_process():
                     wandb.log({
                         "MLM loss": batch_MLM_loss,
@@ -594,7 +594,7 @@ class Trainer():
                         "loss": batch_loss,
                         "lr": self.optimizer.param_groups[0]['lr'],
                     },
-                    step=step+self.step_ckpt+step_shift)
+                    step=step)
                 
                 batch_MLM_loss = 0
                 batch_NSP_loss = 0
@@ -606,14 +606,14 @@ class Trainer():
                 #         wandb.log({f"attn{i}": wandb.Histogram(torch.norm(outputs.attentions[i], dim=-1).cpu().detach().float().numpy())})
             
             # Break if we have reached the max number of steps
-            if (step+self.step_ckpt) >= self.num_steps:
+            if (step) >= self.num_steps:
                 break
             
             
             
             
-            if (step+1+self.step_ckpt) % self.num_save_steps == 0:
-                self.save_model(step+self.step_ckpt)
+            if (step+1) % self.num_save_steps == 0:
+                self.save_model(step)
                 
                 
                 
