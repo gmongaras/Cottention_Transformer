@@ -13,17 +13,21 @@
 
 
 
-
-
-// template<typename T>
-// __device__ void AtomicAdd_(T* address, T val) {
-//     if (std::is_same<T, at::Half>::value) {
-//         atomicAdd(reinterpret_cast<__half*>(address), __half(val));
-//     }
-//     else {
-//         atomicAdd(address, val);
-//     }
-// }
+// General AtomicAdd_
+template<typename T>
+__device__ void AtomicAdd_(T* address, T val) {
+    atomicAdd(address, val);
+}
+// Specialization for half precision
+template<>
+__device__ void AtomicAdd_(at::Half* address, at::Half val) {
+    atomicAdd(reinterpret_cast<__half*>(address), *reinterpret_cast<__half*>(&val));
+}
+// Specialization for bfloat16 half precision
+template<>
+__device__ void AtomicAdd_(at::BFloat16* address, at::BFloat16 val) {
+    atomicAdd(reinterpret_cast<__nv_bfloat16*>(address), *reinterpret_cast<__nv_bfloat16*>(&val));
+}
 
 
 
@@ -54,7 +58,7 @@ __global__ void compute_outer_products(
     // in the shared memory.
     for (int i = blk_idx; i < BS; i++) {
         // Add the product to the VK tensor
-        atomicAdd(&VK[(((nHh * block_size + i) * d_V) + d_v) * d_K + d_k], product);
+        AtomicAdd_(&VK[(((nHh * block_size + i) * d_V) + d_v) * d_K + d_k], product);
     }
     // }
 }
@@ -81,7 +85,7 @@ __global__ void matrix_multiply_kernel(
 
     // Element-wise multiplication and add to shared memory
     // Write the accumulated sum to the output tensor
-    atomicAdd(&output[nHhSsb * d_V + d_v], Q[nHhSsb * d_K + d_k] * VK[indexVK]);
+    AtomicAdd_(&output[nHhSsb * d_V + d_v], Q[nHhSsb * d_K + d_k] * VK[indexVK]);
 
     // Since each position in VK is only access once, we can copy
     // the contents of the last block to this one.
@@ -252,7 +256,6 @@ torch::Tensor compute_and_contract_call(const torch::Tensor& Q, const torch::Ten
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("float32", &compute_and_contract_call<float>);
-    // m.def("float64", &compute_and_contract_call<double>);
-    // m.def("float16", &compute_and_contract_call<at::Half>);
-    // m.def("bfloat16", &compute_and_contract_call<at::BFloat16>);
+    m.def("float16", &compute_and_contract_call<at::Half>);
+    m.def("bfloat16", &compute_and_contract_call<at::BFloat16>);
 }

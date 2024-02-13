@@ -236,9 +236,9 @@ torch.cuda.empty_cache()
 gc.collect()
 torch.cuda.reset_peak_memory_stats()
 
-# assert torch.allclose(Q2.grad, Q6.grad)
-# assert torch.allclose(K2.grad, K6.grad)
-# assert torch.allclose(V2.grad, V6.grad)
+assert torch.allclose(Q2.grad, Q6.grad, 3)
+assert torch.allclose(K2.grad, K6.grad, 3)
+assert torch.allclose(V2.grad, V6.grad, 3)
 
 
 # Testing speed of backward pass
