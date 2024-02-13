@@ -9,7 +9,20 @@
 #include <iostream>
 #include <chrono>
 
+#include <cuda_fp16.h> // Include CUDA half-precision definitions
 
+
+
+
+// template<typename T>
+// __device__ void AtomicAdd_(T* address, T val) {
+//     if (std::is_same<T, at::Half>::value) {
+//         atomicAdd(reinterpret_cast<__half*>(address), __half(val));
+//     }
+//     else {
+//         atomicAdd(address, val);
+//     }
+// }
 
 
 
@@ -192,6 +205,7 @@ void compute_and_contract(
 // void compute_and_contract(const torch::Tensor& A, const torch::Tensor& B, const torch::Tensor& C, torch::Tensor& output);
 
 // C++ interface
+template<typename dtype_>
 torch::Tensor compute_and_contract_call(const torch::Tensor& Q, const torch::Tensor& K_orig, const torch::Tensor& V_orig, const int block_size) {
     // Check tensor requirements, e.g., dtype, device, etc.
     TORCH_CHECK(Q.device().is_cuda(), "Q must be a CUDA tensor");
@@ -219,26 +233,26 @@ torch::Tensor compute_and_contract_call(const torch::Tensor& Q, const torch::Ten
     auto V = V_orig.unsqueeze(-2); // (N, H, S, 1, D)
 
     // Call the CUDA kernel
-    compute_and_contract<float>(
-        Q.data_ptr<float>(),
-        K.data_ptr<float>(),
-        V.data_ptr<float>(),
-        output.data_ptr<float>(),
-        VK.data_ptr<float>(),
+    compute_and_contract<dtype_>(
+        Q.data_ptr<dtype_>(),
+        K.data_ptr<dtype_>(),
+        V.data_ptr<dtype_>(),
+        output.data_ptr<dtype_>(),
+        VK.data_ptr<dtype_>(),
         N, H, S, D, block_size);
 
     // writeTensorToFile("output.bin", output.data_ptr<float>(), {N, H, S, D});
 
-    // Deallocate memory for the intermediate tensors
-    VK.~Tensor();
-
     return output;
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("compute_and_contract", &compute_and_contract_call, "Compute and contract operation");
-}
 
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+    m.def("float32", &compute_and_contract_call<float>);
+    // m.def("float64", &compute_and_contract_call<double>);
+    // m.def("float16", &compute_and_contract_call<at::Half>);
+    // m.def("bfloat16", &compute_and_contract_call<at::BFloat16>);
+}
 
 
 

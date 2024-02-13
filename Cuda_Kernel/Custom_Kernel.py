@@ -6,7 +6,7 @@ import FastAttention
 class CustomAttention(torch.autograd.Function):
     @staticmethod
     def forward(ctx, Q, K, V):
-        output = FastAttention.compute_and_contract(Q, K, V, 5)
+        output = FastAttention.float32(Q, K, V, 5)
 
         # Save tensors for backward pass
         ctx.save_for_backward(Q, K, V, output)

@@ -7,7 +7,7 @@ setup(
         CUDAExtension('FastAttention', [
             # 'custom_op_kernel.cu',
             # 'custom_op.cpp',
-            'cu_code_window.cu',
+            'cu_code_fast.cu',
         ]),
     ],
     cmdclass={

@@ -1,5 +1,4 @@
 import torch
-import custom_op
 from Custom_Kernel import CustomAttention
 
 N = 256
