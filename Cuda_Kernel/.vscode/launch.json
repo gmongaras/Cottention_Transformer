@@ -1,0 +1,53 @@
+// {
+//     "version": "0.2.0",
+//     "configurations": [
+//         {
+//             "name": "CUDA C++: Launch",
+//             "type": "cuda-gdb",
+//             "request": "launch",
+//             "program": "${workspaceFolder}/a.out",
+//             "args": [],
+//             "cwd": "${workspaceFolder}",
+//             "environment": [
+//                 {
+//                     "name": "LD_LIBRARY_PATH",
+//                     "value": "/home/gmongaras/miniconda3/envs/baseEnv/lib/python3.10/site-packages/torch/lib/"
+//                 }
+//             ],
+//             "externalConsole": true,
+//             "MIMode": "gdb",
+//             "miDebuggerPath": "/usr/local/cuda/bin/cuda-gdb",
+//             "setupCommands": [
+//                 {
+//                     "description": "Enable pretty-printing for gdb",
+//                     "text": "-enable-pretty-printing",
+//                     "ignoreFailures": true
+//                 }
+//             ],
+//             "preLaunchTask": "build"
+//         }
+//     ]
+// }
+
+
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+
+
+            // "program": "test.py",
+            "program": "${file}",
+
+
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}

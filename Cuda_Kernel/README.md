@@ -1,0 +1,1 @@
+pip uninstall FastAttention -y;python setup.py install
