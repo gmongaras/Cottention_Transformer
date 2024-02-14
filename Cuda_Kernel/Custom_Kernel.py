@@ -7,11 +7,11 @@ class CustomAttention(torch.autograd.Function):
     @staticmethod
     def forward(ctx, Q, K, V):
         if Q.dtype == torch.float32:
-            output = FastAttention.float32(Q, K, V, 5)
+            output = FastAttention.float32(Q, K, V, 3)
         elif Q.dtype == torch.float16:
-            output = FastAttention.float16(Q, K, V, 5)
+            output = FastAttention.float16(Q, K, V, 3)
         elif Q.dtype == torch.bfloat16:
-            output = FastAttention.bfloat16(Q, K, V, 5)
+            output = FastAttention.bfloat16(Q, K, V, 3)
         else:
             raise ValueError("Only float32, float16, and bfloat16 are supported")
 
