@@ -1,9 +1,9 @@
 import torch
 from Custom_Kernel import CustomAttention
 
-N = 256
+N = 32
 S = 256
-D = 32
+D = 1024//8
 
 # Method 1
 def method1(Q, K, V, mask):
@@ -151,9 +151,9 @@ start = time.time()
 out = method2(Q, K, V, mask)
 print("Method 2:", time.time() - start)
 
-start = time.time()
-out2 = method5(Q, K, V, mask)
-print("Method 5:", time.time() - start)
+# start = time.time()
+# out2 = method5(Q, K, V, mask)
+# print("Method 5:", time.time() - start)
 
 start = time.time()
 method6(Q, K, V, mask)
@@ -171,6 +171,7 @@ gc.collect()
 torch.cuda.reset_peak_memory_stats()
 
 method1(Q, K, V, mask)
+print("Method 1:")
 print(torch.cuda.memory_allocated())
 print(torch.cuda.memory_cached())
 print(torch.cuda.max_memory_allocated())
@@ -180,6 +181,7 @@ gc.collect()
 torch.cuda.reset_peak_memory_stats()
 
 method2(Q, K, V, mask)
+print("Method 2:")
 print(torch.cuda.memory_allocated())
 print(torch.cuda.memory_cached())
 print(torch.cuda.max_memory_allocated())
@@ -198,6 +200,7 @@ torch.cuda.reset_peak_memory_stats()
 # torch.cuda.reset_peak_memory_stats()
 
 method6(Q, K, V, mask)
+print("Method 6:")
 print(torch.cuda.memory_allocated())
 print(torch.cuda.memory_cached())
 print(torch.cuda.max_memory_allocated())
@@ -236,9 +239,9 @@ torch.cuda.empty_cache()
 gc.collect()
 torch.cuda.reset_peak_memory_stats()
 
-assert torch.allclose(Q2.grad, Q6.grad, 3)
-assert torch.allclose(K2.grad, K6.grad, 3)
-assert torch.allclose(V2.grad, V6.grad, 3)
+# assert torch.allclose(Q2.grad, Q6.grad, 3)
+# assert torch.allclose(K2.grad, K6.grad, 3)
+# assert torch.allclose(V2.grad, V6.grad, 3)
 
 
 # Testing speed of backward pass

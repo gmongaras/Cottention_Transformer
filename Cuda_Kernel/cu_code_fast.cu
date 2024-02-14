@@ -29,6 +29,16 @@ __device__ void AtomicAdd_(at::BFloat16* address, at::BFloat16 val) {
     atomicAdd(reinterpret_cast<__nv_bfloat16*>(address), *reinterpret_cast<__nv_bfloat16*>(&val));
 }
 
+// template<typename T>
+// __device__ void AtomicAdd_(T* address, T& val) {
+//     if (std::is_same<T, at::Half>::value || std::is_same<T, c10::Half>::value || typeid(T) == typeid(c10::Half)) {
+//         atomicAdd(reinterpret_cast<__half*>(address), *reinterpret_cast<__half*>(&val));
+//     }
+//     else {
+//         atomicAdd(address, val);
+//     }
+// }
+
 
 
 
