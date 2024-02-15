@@ -24,11 +24,11 @@ template<>
 __device__ void AtomicAdd_(at::Half* address, at::Half val) {
     atomicAdd(reinterpret_cast<__half*>(address), *reinterpret_cast<__half*>(&val));
 }
-// // Specialization for bfloat16 half precision
-// template<>
-// __device__ void AtomicAdd_(at::BFloat16* address, at::BFloat16 val) {
-//     atomicAdd(reinterpret_cast<__nv_bfloat16*>(address), *reinterpret_cast<__nv_bfloat16*>(&val));
-// }
+// Specialization for bfloat16 half precision
+template<>
+__device__ void AtomicAdd_(at::BFloat16* address, at::BFloat16 val) {
+    atomicAdd(reinterpret_cast<__nv_bfloat16*>(address), *reinterpret_cast<__nv_bfloat16*>(&val));
+}
 
 
 
@@ -118,7 +118,10 @@ __global__ void matrix_multiply_kernel(
 
 
     // Allocate shared memory for the cumulative sum
-    extern __shared__ T shared_memory[];
+    // My man!
+    // https://github.com/pytorch/extension-cpp/issues/59#issuecomment-626189915
+    extern __shared__ __align__(sizeof(T)) unsigned char shared_memory_uchar[];
+    T *shared_memory = reinterpret_cast<T *>(shared_memory_uchar);
 
 
     // Ensure we are within bounds for the d_V dimension and d_K dimension
@@ -146,7 +149,7 @@ __global__ void matrix_multiply_kernel(
                 sum_ += shared_memory[i];
             }
             
-            atomicAdd(&output[indexOutput], sum_);
+            AtomicAdd_(&output[indexOutput], sum_);
         }
 
         // Since each position in VK is only access once, we can copy
@@ -282,8 +285,13 @@ torch::Tensor compute_and_contract_call(torch::Tensor& Q, torch::Tensor& K_orig,
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("float32", &compute_and_contract_call<float>);
-    // m.def("float16", &compute_and_contract_call<at::Half>);
-    // m.def("bfloat16", &compute_and_contract_call<at::BFloat16>);
+    m.def("float16", &compute_and_contract_call<at::Half>);
+    try {
+        m.def("bfloat16", &compute_and_contract_call<at::BFloat16>);
+    } catch (const std::exception& e) {
+        std::cout << "GPU does not support bfloat16. Skipping..." << std::endl;
+        // std::cerr << "Error: " << e.what() << std::endl;
+    }
 }
 
 
