@@ -24,11 +24,11 @@ template<>
 __device__ void AtomicAdd_(at::Half* address, at::Half val) {
     atomicAdd(reinterpret_cast<__half*>(address), *reinterpret_cast<__half*>(&val));
 }
-// Specialization for bfloat16 half precision
-template<>
-__device__ void AtomicAdd_(at::BFloat16* address, at::BFloat16 val) {
-    atomicAdd(reinterpret_cast<__nv_bfloat16*>(address), *reinterpret_cast<__nv_bfloat16*>(&val));
-}
+// // Specialization for bfloat16 half precision
+// template<>
+// __device__ void AtomicAdd_(at::BFloat16* address, at::BFloat16 val) {
+//     atomicAdd(reinterpret_cast<__nv_bfloat16*>(address), *reinterpret_cast<__nv_bfloat16*>(&val));
+// }
 
 
 
@@ -233,7 +233,7 @@ void compute_and_contract(
 
 // C++ interface
 template<typename dtype_>
-torch::Tensor compute_and_contract_call(const torch::Tensor& Q, const torch::Tensor& K_orig, const torch::Tensor& V_orig, const int block_size) {
+torch::Tensor compute_and_contract_call(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V_orig, const int block_size) {
     // Check tensor requirements, e.g., dtype, device, etc.
     TORCH_CHECK(Q.device().is_cuda(), "Q must be a CUDA tensor");
     TORCH_CHECK(K_orig.device().is_cuda(), "K must be a CUDA tensor");
@@ -259,6 +259,11 @@ torch::Tensor compute_and_contract_call(const torch::Tensor& Q, const torch::Ten
     // Unsqueeze K along the last dimension and V along the second-to-last dimension
     auto K = K_orig.unsqueeze(-1); // (N, H, S, D, 1)
     auto V = V_orig.unsqueeze(-2); // (N, H, S, 1, D)
+
+    // Ensure the tensors are contiguous
+    Q = Q.contiguous();
+    K = K.contiguous();
+    V = V.contiguous();
 
     // Call the CUDA kernel
     compute_and_contract<dtype_>(

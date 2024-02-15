@@ -13,6 +13,9 @@ from typing import Union
 
 
 import torch
+import sys
+sys.path.append("Cuda_Kernel")
+from Custom_Kernel import CustomAttention
 
 
 
@@ -142,39 +145,65 @@ class GPTCosAttention(nn.Module):
         # query = query.to(torch.float32)
         # key = key.to(torch.float32)
         
+        # reIntialize q,k,v to randn
+        # query = torch.randn(query.shape, device=query.device, dtype=query.dtype)
+        # key = torch.randn(key.shape, device=key.device, dtype=key.dtype)
+        # value = torch.randn(value.shape, device=value.device, dtype=value.dtype)
+        
+        
         # Normalize query, and keys
         query = torch.nn.functional.normalize(query, dim=-1, p=2)
         key = torch.nn.functional.normalize(key, dim=-1, p=2)
         
         # Scale the values
         value = value / (((causal_mask * (attention_mask==0))).sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()).clamp(min=1)
-
-        attn_weights = torch.matmul(query, key.transpose(-1, -2))
-
-        # mask_value = torch.finfo(attn_weights.dtype).min
-        # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
-        # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
-        # mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
-        # Mask with zeros for the causal mask
-        attn_weights = torch.where(causal_mask, attn_weights, 0)
-
-        # attn_weights = attn_weights / self.scale_attn
-
+        
+        
+        # Mask query, key, and value layers
         if attention_mask is not None:
-            # Apply the attention mask
-            attn_weights = attn_weights * (attention_mask==0)
+            query = query * (attention_mask == 0).transpose(-1, -2)
+            key = key * (attention_mask == 0).transpose(-1, -2)
+            value = value * (attention_mask == 0).transpose(-1, -2)
+        
+        
+        
+        
+        #### Custom Attention ####
+        attn_output = CustomAttention.apply(query.float(), key.float(), value.float())
+        #### Custom Attention ####
+        
+        
+        
+        # #### Normal Attention ####
+        # attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
-        # attn_weights = nn.functional.softmax(attn_weights, dim=-1)
-        attn_weights = attn_weights.to(value.dtype)
-        attn_weights = self.attn_dropout(attn_weights)
+        # # mask_value = torch.finfo(attn_weights.dtype).min
+        # # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
+        # # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
+        # # mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+        # # Mask with zeros for the causal mask
+        # attn_weights = torch.where(causal_mask, attn_weights, 0)
 
-        # Mask heads if we want to
-        if head_mask is not None:
-            attn_weights = attn_weights * head_mask
+        # # attn_weights = attn_weights / self.scale_attn
 
-        attn_output = torch.matmul(attn_weights, value)
+        # # if attention_mask is not None:
+        # #     # Apply the attention mask
+        # #     attn_weights = attn_weights * (attention_mask==0)
 
-        return attn_output, attn_weights
+        # # attn_weights = nn.functional.softmax(attn_weights, dim=-1)
+        # attn_weights = attn_weights.to(value.dtype)
+        # # attn_weights = self.attn_dropout(attn_weights)
+
+        # # Mask heads if we want to
+        # if head_mask is not None:
+        #     attn_weights = attn_weights * head_mask
+
+        # attn_output = torch.matmul(attn_weights, value)
+        # #### Normal Attention ####
+        
+        
+
+        return attn_output, attn_output
 
     def _get_embed_positions(self, position_ids):
         embed_positions = self.embed_positions
