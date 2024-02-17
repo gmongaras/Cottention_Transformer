@@ -218,7 +218,7 @@ void compute_attention(
 
 // Wrapper function to orchestrate the computation
 template<typename T>
-void compute_and_contract(
+void forward_call(
     const T* Q, const T* K, const T* V, T* output, T* VK,
     int N, int H, int S, int D,
     const int block_size,
@@ -236,7 +236,7 @@ void compute_and_contract(
 
 // C++ interface
 template<typename dtype_>
-torch::Tensor compute_and_contract_call(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V_orig, const int block_size) {
+torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V_orig, const int block_size) {
     // Check tensor requirements, e.g., dtype, device, etc.
     TORCH_CHECK(Q.device().is_cuda(), "Q must be a CUDA tensor");
     TORCH_CHECK(K_orig.device().is_cuda(), "K must be a CUDA tensor");
@@ -249,11 +249,11 @@ torch::Tensor compute_and_contract_call(torch::Tensor& Q, torch::Tensor& K_orig,
     int D = Q.size(3);
 
     // Ouput tensor
-    auto output = torch::zeros({N, H, S, D}, Q.options());
+    auto output = torch::zeros({N, H, S, D}, torch::TensorOptions().dtype(Q.scalar_type()).device(Q.device()));
     // auto output = K_orig;
 
     // Allocate memory for the intermediate tensors
-    auto VK = torch::zeros({N, H, block_size, D, D}, Q.options());
+    auto VK = torch::zeros({N, H, block_size, D, D}, torch::TensorOptions().dtype(Q.scalar_type()).device(Q.device()));
 
     // writeTensorToFile("Q.bin", Q.data_ptr<float>(), {N, H, S, D});
     // writeTensorToFile("K.bin", K_orig.data_ptr<float>(), {N, H, S, D});
@@ -269,7 +269,7 @@ torch::Tensor compute_and_contract_call(torch::Tensor& Q, torch::Tensor& K_orig,
     V = V.contiguous();
 
     // Call the CUDA kernel
-    compute_and_contract<dtype_>(
+    forward_call<dtype_>(
         Q.data_ptr<dtype_>(),
         K.data_ptr<dtype_>(),
         V.data_ptr<dtype_>(),
@@ -284,10 +284,10 @@ torch::Tensor compute_and_contract_call(torch::Tensor& Q, torch::Tensor& K_orig,
 
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("float32", &compute_and_contract_call<float>);
-    m.def("float16", &compute_and_contract_call<at::Half>);
+    m.def("float32", &forward_<float>);
+    m.def("float16", &forward_<at::Half>);
     try {
-        m.def("bfloat16", &compute_and_contract_call<at::BFloat16>);
+        m.def("bfloat16", &forward_<at::BFloat16>);
     } catch (const std::exception& e) {
         std::cout << "GPU does not support bfloat16. Skipping..." << std::endl;
         // std::cerr << "Error: " << e.what() << std::endl;

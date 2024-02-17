@@ -4,8 +4,11 @@ from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 setup(
     name='FastAttention',
     ext_modules=[
-        CUDAExtension('FastAttention', [
+        CUDAExtension('FastAttention.forward', [
             'forward.cu',
+        ]),
+        CUDAExtension('FastAttention.backward', [
+            'backward.cu',
         ]),
     ],
     cmdclass={
