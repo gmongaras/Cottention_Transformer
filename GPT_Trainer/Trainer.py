@@ -111,7 +111,6 @@ class Trainer():
             checkpoint_path=None,
             finetune=False,
             finetune_task=None,
-            per_short_steps=0.9 # Percentage of steps to use the short sequence length (first 90% by default)
         ):
         self.learning_rate = learning_rate
         self.warmup_steps = warmup_steps
@@ -127,7 +126,6 @@ class Trainer():
         self.keep_dataset_in_mem = keep_dataset_in_mem
         self.finetune_ = finetune
         self.finetune_task = finetune_task
-        self.per_short_steps = per_short_steps
         
         
         
@@ -257,7 +255,7 @@ class Trainer():
         
             
         
-    def augment_data(self, batch):
+    def prepare_data(self, batch):
         # Max lenght of the input
         max_length = max([len(x["input_ids"]) for x in batch]) + 1 # +1 for the extra pad token
         
@@ -305,7 +303,7 @@ class Trainer():
             
             
     def train_model(self):
-        self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0)
+        self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", self.num_steps, self.step_ckpt)
         
         
         
@@ -327,7 +325,7 @@ class Trainer():
         self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids"])
         
         # PyTorch random sampler
-        random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=num_steps*self.batch_size)
+        random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=(num_steps-step_shift)*self.batch_size)
         
         # PyTorch data loader
         data_loader = torch.utils.data.DataLoader(
@@ -339,18 +337,6 @@ class Trainer():
             num_workers=10,
             prefetch_factor=10,
             persistent_workers=True,
-        )
-        
-        
-        
-        # Data loader for random sentence sampling 
-        # Create a sampler for random data fetching
-        self.random_data_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=1)
-        # Create a data loader for fetching random datapoints
-        self.random_data_loader = torch.utils.data.DataLoader(
-            self.tokenized_dataset,
-            batch_size=1,
-            sampler=self.random_data_sampler
         )
         
         
@@ -384,14 +370,16 @@ class Trainer():
         loss_fct = nn.CrossEntropyLoss(ignore_index=-100)
         
         # Training loop
-        for step, batch in enumerate(tqdm(data_loader, initial=self.step_ckpt + step_shift, total=num_steps + step_shift)) if is_main_process() else enumerate(data_loader):
+        for step, batch in enumerate(tqdm(data_loader, initial=step_shift, total=num_steps)) if is_main_process() else enumerate(data_loader):
+            step += step_shift
+            
             # Set the epoch number for the dataloader to seed the
             # randomization of the sampler
             # if self.dev != "cpu":
             #     data_loader.sampler.set_epoch(step)
             
             # Augment input
-            batch = self.augment_data(batch)
+            batch = self.prepare_data(batch)
             
             # Get input and labels
             input_ids = batch["input_ids"]
@@ -405,36 +393,36 @@ class Trainer():
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
                 outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
                 
-                # Losses for the MLM and NSP
+                # Loss
                 loss = loss_fct(outputs.logits.view(-1, self.model_ref.config.vocab_size), labels.view(-1).to(outputs.logits.device))
                 
-                # Backpropagate loss
-                if self.use_amp:
-                    grad_scaler.scale(loss).backward()
-                else:
-                    loss.backward()
-                    
-                # Clip gradients
-                if self.use_amp:
-                    grad_scaler.unscale_(self.optimizer)
-                if self.clipping_value is not None:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clipping_value)
+            # Backpropagate loss
+            if self.use_amp:
+                grad_scaler.scale(loss).backward()
+            else:
+                loss.backward()
                 
-                # Take optimizer step
-                if self.use_amp:
-                    grad_scaler.step(self.optimizer)
-                else:
-                    self.optimizer.step()
-                
-                # Update scheduler
-                self.scheduler.step(step+self.step_ckpt+step_shift)
-                
-                # Step the gradient scaler
-                if self.use_amp:
-                    grad_scaler.update()
-                
-                # Zero gradients
-                self.optimizer.zero_grad()
+            # Clip gradients
+            if self.use_amp:
+                grad_scaler.unscale_(self.optimizer)
+            if self.clipping_value is not None:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clipping_value)
+            
+            # Take optimizer step
+            if self.use_amp:
+                grad_scaler.step(self.optimizer)
+            else:
+                self.optimizer.step()
+            
+            # Update scheduler
+            self.scheduler.step(step)
+            
+            # Step the gradient scaler
+            if self.use_amp:
+                grad_scaler.update()
+            
+            # Zero gradients
+            self.optimizer.zero_grad()
             
             
             
@@ -445,25 +433,26 @@ class Trainer():
             
             
             # Log wandb
-            if (step+self.step_ckpt) % self.log_steps == 0:
+            if (step) % self.log_steps == 0:
                 if is_main_process():
                     wandb.log({
                         "loss": batch_loss,
+                        "perplexity": torch.exp(torch.tensor(batch_loss)),
                         "lr": self.optimizer.param_groups[0]['lr'],
                     },
-                    step=step+self.step_ckpt+step_shift)
+                    step=step)
                 
                 batch_loss = 0
             
             # Break if we have reached the max number of steps
-            if (step+self.step_ckpt) >= self.num_steps:
+            if (step) >= self.num_steps:
                 break
             
             
             
             
-            if (step+1+self.step_ckpt) % self.num_save_steps == 0:
-                self.save_model(step+self.step_ckpt)
+            if step % self.num_save_steps == 0:
+                self.save_model(step)
                 
                 
                 
@@ -894,14 +883,26 @@ class Trainer():
                 layer.attn = GPTCosAttention(self.model.config).to(layer.attn.q_proj.weight.device)
                 
                 # Copy weights
-                layer.attn.q_proj.weight.data = old.query.weight.data
-                layer.attn.q_proj.bias.data = old.query.bias.data if old.query.bias is not None else None
-                layer.attn.k_proj.weight.data = old.key.weight.data
-                layer.attn.k_proj.bias.data = old.key.bias.data if old.key.bias is not None else None
-                layer.attn.v_proj.weight.data = old.value.weight.data
-                layer.attn.v_proj.bias.data = old.value.bias.data if old.value.bias is not None else None
-                layer.attn.out_proj.weight.data = old.out.weight.data
-                layer.attn.out_proj.bias.data = old.out.bias.data if old.out.bias is not None else None
+                layer.attn.q_proj.weight.data = old.q_proj.weight.data
+                if old.q_proj.bias is not None:
+                    layer.attn.q_proj.bias.data = old.q_proj.bias.data
+                else:
+                    layer.attn.q_proj.bias = None
+                layer.attn.k_proj.weight.data = old.k_proj.weight.data
+                if old.k_proj.bias is not None:
+                    layer.attn.k_proj.bias.data = old.k_proj.bias.data
+                else:
+                    layer.attn.k_proj.bias = None
+                layer.attn.v_proj.weight.data = old.v_proj.weight.data
+                if old.v_proj.bias is not None:
+                    layer.attn.v_proj.bias.data = old.v_proj.bias.data
+                else:
+                    layer.attn.v_proj.bias = None
+                layer.attn.out_proj.weight.data = old.out_proj.weight.data
+                if old.out_proj.bias is not None:
+                    layer.attn.out_proj.bias.data = old.out_proj.bias.data
+                else:
+                    layer.attn.out_proj.bias = None
                 
                 del old
                 
@@ -955,3 +956,5 @@ class Trainer():
             # Load the scheduler
             self.scheduler = get_scheduler(self.optimizer, warmup_steps=self.warmup_steps, total_steps=self.num_steps)
             self.scheduler.load_state_dict(torch.load(os.path.join(checkpoint_path, "scheduler.pt"), map_location=self.model.device))
+            
+        self.pad_token = torch.tensor([self.tokenizer.pad_token_id])

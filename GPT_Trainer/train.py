@@ -12,7 +12,7 @@ except ModuleNotFoundError:
 
 def main():
     # Create the model trainer
-    batch_size=256
+    batch_size=128
     learning_rate=1e-4
     warmup_steps=10_000
     num_steps=1_000_000
@@ -20,7 +20,7 @@ def main():
     wandb_name="del"
     log_steps=10
     use_amp=True
-    attention_type="cos"
+    attention_type="cos" # cos or soft
     clipping_value=None
     weight_decay=0.01
     model_save_path = "models/del"

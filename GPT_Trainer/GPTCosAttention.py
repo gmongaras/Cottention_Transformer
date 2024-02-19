@@ -144,18 +144,13 @@ class GPTCosAttention(nn.Module):
         # # Keep the attention weights computation in fp32 to avoid overflow issues
         # query = query.to(torch.float32)
         # key = key.to(torch.float32)
-        
-        # reIntialize q,k,v to randn
-        # query = torch.randn(query.shape, device=query.device, dtype=query.dtype)
-        # key = torch.randn(key.shape, device=key.device, dtype=key.dtype)
-        # value = torch.randn(value.shape, device=value.device, dtype=value.dtype)
-        
+
         
         # Normalize query, and keys
         query = torch.nn.functional.normalize(query, dim=-1, p=2)
         key = torch.nn.functional.normalize(key, dim=-1, p=2)
         
-        # Scale the values
+        # Scale the values by the length of the sequence
         value = value / (((causal_mask * (attention_mask==0))).sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()).clamp(min=1)
         
         
@@ -167,43 +162,92 @@ class GPTCosAttention(nn.Module):
         
         
         
+        # #### Custom Attention ####
+        # attn_output = CustomAttention.apply(query, key, value)
+        # #### Custom Attention ####
         
+        
+        
+        #### Normal Attention ####
+        attn_weights = torch.matmul(query, key.transpose(-1, -2))
+
+        # mask_value = torch.finfo(attn_weights.dtype).min
+        # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
+        # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
+        # mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+        # Mask with zeros for the causal mask
+        attn_weights = torch.where(causal_mask, attn_weights, 0)
+
+        # attn_weights = attn_weights / self.scale_attn
+
+        # if attention_mask is not None:
+        #     # Apply the attention mask
+        #     attn_weights = attn_weights * (attention_mask==0)
+
+        # attn_weights = nn.functional.softmax(attn_weights, dim=-1)
+        attn_weights = attn_weights.to(value.dtype)
+        # attn_weights = self.attn_dropout(attn_weights)
+
+        # Mask heads if we want to
+        if head_mask is not None:
+            attn_weights = attn_weights * head_mask
+
+        attn_output = torch.matmul(attn_weights, value)
+        #### Normal Attention ####
+        
+        
+        
+        """tests - don't delete
         #### Custom Attention ####
-        attn_output = CustomAttention.apply(query.float(), key.float(), value.float())
+        Q1 = query.detach().clone().requires_grad_(True)
+        K1 = key.detach().clone().requires_grad_(True)
+        V1 = value.detach().clone().requires_grad_(True)
+        attn_output = CustomAttention.apply(Q1, K1, V1)
         #### Custom Attention ####
         
+        b = torch.autograd.gradcheck(CustomAttention.apply, (Q1, K1, V1))
         
         
-        # #### Normal Attention ####
-        # attn_weights = torch.matmul(query, key.transpose(-1, -2))
-
-        # # mask_value = torch.finfo(attn_weights.dtype).min
-        # # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
-        # # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
-        # # mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
-        # # Mask with zeros for the causal mask
-        # attn_weights = torch.where(causal_mask, attn_weights, 0)
-
-        # # attn_weights = attn_weights / self.scale_attn
-
-        # # if attention_mask is not None:
-        # #     # Apply the attention mask
-        # #     attn_weights = attn_weights * (attention_mask==0)
-
-        # # attn_weights = nn.functional.softmax(attn_weights, dim=-1)
-        # attn_weights = attn_weights.to(value.dtype)
-        # # attn_weights = self.attn_dropout(attn_weights)
-
-        # # Mask heads if we want to
-        # if head_mask is not None:
-        #     attn_weights = attn_weights * head_mask
-
-        # attn_output = torch.matmul(attn_weights, value)
-        # #### Normal Attention ####
+        
+        #### Normal Attention ####
+        Q2 = query.detach().clone().requires_grad_(True)
+        K2 = key.detach().clone().requires_grad_(True)
+        V2 = value.detach().clone().requires_grad_(True)
+        attn_weights = torch.matmul(Q2, K2.transpose(-1, -2))
+        # mask_value = torch.finfo(attn_weights.dtype).min
+        # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
+        # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
+        # mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+        # Mask with zeros for the causal mask
+        attn_weights = torch.where(causal_mask, attn_weights, 0)
+        # attn_weights = attn_weights / self.scale_attn
+        # if attention_mask is not None:
+        #     # Apply the attention mask
+        #     attn_weights = attn_weights * (attention_mask==0)
+        # attn_weights = nn.functional.softmax(attn_weights, dim=-1)
+        attn_weights = attn_weights.to(value.dtype)
+        # attn_weights = self.attn_dropout(attn_weights)
+        # Mask heads if we want to
+        if head_mask is not None:
+            attn_weights = attn_weights * head_mask
+        attn_output_ = torch.matmul(attn_weights, V2)
+        #### Normal Attention ####
+        
+        
+        # Gradient of attn_output wrt to Q, K, V
+        grad_Q = torch.autograd.grad(attn_output, Q1, attn_output, retain_graph=True)[0]
+        grad_K = torch.autograd.grad(attn_output, K1, attn_output, retain_graph=True)[0]
+        grad_V = torch.autograd.grad(attn_output, V1, attn_output, retain_graph=True)[0]
+        
+        # Gradient of attn_output_ wrt to Q, K, V
+        grad_Q_ = torch.autograd.grad(attn_output_, Q2, attn_output_, retain_graph=True)[0]
+        grad_K_ = torch.autograd.grad(attn_output_, K2, attn_output_, retain_graph=True)[0]
+        grad_V_ = torch.autograd.grad(attn_output_, V2, attn_output_, retain_graph=True)[0]
+        """
         
         
 
-        return attn_output, attn_output
+        return attn_output, attn_weights
 
     def _get_embed_positions(self, position_ids):
         embed_positions = self.embed_positions
