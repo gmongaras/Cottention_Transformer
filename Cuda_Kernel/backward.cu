@@ -1,5 +1,7 @@
 #include <cuda_runtime.h> // For cudaMemcpy and cudaFree
 #include <torch/torch.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/autocast_mode.h>
 // #include <torch/extension.h>
 #include <vector>
 
@@ -218,13 +220,21 @@ torch::Tensor backward_(torch::Tensor& Q, torch::Tensor& K, torch::Tensor& V, to
     int S = Q.size(2);
     int D = Q.size(3);
 
-    // Singel tmeporary tensor
+    // Single temporary tensor
     auto temp = torch::ones({N, H, S, D}, torch::TensorOptions().dtype(Q.scalar_type()).device(Q.device()));
 
     // Ensure the tensors are contiguous
     Q = Q.contiguous();
     K = K.contiguous();
     V = V.contiguous();
+    temp = temp.contiguous();
+    previous_grad = previous_grad.contiguous();
+
+    // https://github.com/state-spaces/mamba/blob/main/csrc/selective_scan/selective_scan.cpp
+    // Otherwise the kernel will be launched from cuda:0 device
+    // Cast to char to avoid compiler warning about narrowing
+    at::cuda::CUDAGuard device_guard{(char)Q.get_device()};
+    // c10::impl::ExcludeDispatchKeyGuard no_autocast(c10::DispatchKey::Autocast);
 
     // Call the CUDA kernel
     backward_call<dtype_>(
@@ -234,14 +244,46 @@ torch::Tensor backward_(torch::Tensor& Q, torch::Tensor& K, torch::Tensor& V, to
         temp,
         previous_grad,
         N, H, S, D, 1);
+    // backward_call<dtype_>(
+    //     at::autocast::cached_cast(at::kHalf, Q),
+    //     at::autocast::cached_cast(at::kHalf, K),
+    //     at::autocast::cached_cast(at::kHalf, V),
+    //     at::autocast::cached_cast(at::kHalf, temp),
+    //     at::autocast::cached_cast(at::kHalf, previous_grad),
+    //     N, H, S, D, 1);
 
     // Gradient of Q, K, V
     return temp;
 }
 
 
+
+// TORCH_LIBRARY(TORCH_EXTENSION_NAME, m) {
+//     m.def("float32", backward_<float>);
+//     m.def("float16", backward_<at::Half>);
+//     try {
+//         m.def("bfloat16", backward_<at::BFloat16>);
+//     } catch (const std::exception& e) {
+//         std::cout << "GPU does not support bfloat16. Skipping..." << std::endl;
+//         // std::cerr << "Error: " << e.what() << std::endl;
+//     }
+// }
+
+TORCH_LIBRARY_IMPL(TORCH_EXTENSION_NAME, Autocast, m) {
+    m.impl("float32", backward_<float>);
+    m.impl("float64", backward_<double>);
+    m.impl("float16", backward_<at::Half>);
+    try {
+        m.impl("bfloat16", backward_<at::BFloat16>);
+    } catch (const std::exception& e) {
+        std::cout << "GPU does not support bfloat16. Skipping..." << std::endl;
+        // std::cerr << "Error: " << e.what() << std::endl;
+    }
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("float32", &backward_<float>);
+    m.def("float64", &backward_<double>);
     m.def("float16", &backward_<at::Half>);
     try {
         m.def("bfloat16", &backward_<at::BFloat16>);

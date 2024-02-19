@@ -103,7 +103,6 @@ def method5(Q, K, V, mask):
 #     return torch.einsum("bsD,bdsD->bsd", Q, VK)
 
 # Method 6 - custom op
-Attn = CustomAttention.apply
 def method6(Q, K, V, mask):
     Q_ = torch.nn.functional.normalize(Q, p=2, dim=-1).unsqueeze(1)
     K_ = torch.nn.functional.normalize(K, p=2, dim=-1).unsqueeze(1)
@@ -113,7 +112,10 @@ def method6(Q, K, V, mask):
     # custom_op.compute_and_contract(Q, K, V, output)
     # print()
     
-    output = CustomAttention.apply(Q_, K_, V).squeeze(1)
+    # Torch autocast
+    with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+        output = CustomAttention.apply(Q_, K_, V).squeeze(1)
+    # output = CustomAttention.apply(Q_, K_, V).squeeze(1)
     return output
     
     # VK = (V.unsqueeze(-1).transpose(1, 2) * K.unsqueeze(1)).cumsum(2)

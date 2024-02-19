@@ -1,5 +1,7 @@
 #include <cuda_runtime.h> // For cudaMemcpy and cudaFree
 #include <torch/torch.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/autocast_mode.h>
 // #include <torch/extension.h>
 #include <vector>
 
@@ -10,7 +12,6 @@
 #include <chrono>
 
 #include <cuda_fp16.h> // Include CUDA half-precision definitions
-
 
 
 
@@ -236,7 +237,7 @@ void forward_call(
 
 // C++ interface
 template<typename dtype_>
-torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V_orig, const int block_size) {
+torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V_orig, const int8_t block_size) {
     // Check tensor requirements, e.g., dtype, device, etc.
     TORCH_CHECK(Q.device().is_cuda(), "Q must be a CUDA tensor");
     TORCH_CHECK(K_orig.device().is_cuda(), "K must be a CUDA tensor");
@@ -268,6 +269,14 @@ torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V
     K = K.contiguous();
     V = V.contiguous();
 
+    // c10::impl::ExcludeDispatchKeyGuard no_autocast(c10::DispatchKey::Autocast);
+
+    // https://github.com/state-spaces/mamba/blob/main/csrc/selective_scan/selective_scan.cpp
+    // Otherwise the kernel will be launched from cuda:0 device
+    // Cast to char to avoid compiler warning about narrowing
+    at::cuda::CUDAGuard device_guard{(char)Q.get_device()};
+    // c10::impl::ExcludeDispatchKeyGuard no_autocast(c10::DispatchKey::Autocast);
+
     // Call the CUDA kernel
     forward_call<dtype_>(
         Q.data_ptr<dtype_>(),
@@ -276,15 +285,45 @@ torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V
         output.data_ptr<dtype_>(),
         VK.data_ptr<dtype_>(),
         N, H, S, D, block_size);
+    // forward_call<dtype_>(
+    //     at::autocast::cached_cast(at::kHalf, Q).data_ptr<dtype_>(),
+    //     at::autocast::cached_cast(at::kHalf, K).data_ptr<dtype_>(),
+    //     at::autocast::cached_cast(at::kHalf, V).data_ptr<dtype_>(),
+    //     at::autocast::cached_cast(at::kHalf, output).data_ptr<dtype_>(),
+    //     at::autocast::cached_cast(at::kHalf, VK).data_ptr<dtype_>(),
+    //     N, H, S, D, block_size);
 
     // writeTensorToFile("output.bin", output.data_ptr<float>(), {N, H, S, D});
 
     return output;
 }
 
+// TORCH_LIBRARY(TORCH_EXTENSION_NAME, m) {
+//     m.def("float32", forward_<float>);
+//     m.def("float16", forward_<at::Half>);
+//     try {
+//         m.def("bfloat16", forward_<at::BFloat16>);
+//     } catch (const std::exception& e) {
+//         std::cout << "GPU does not support bfloat16. Skipping..." << std::endl;
+//         // std::cerr << "Error: " << e.what() << std::endl;
+//     }
+// }
+
+TORCH_LIBRARY_IMPL(TORCH_EXTENSION_NAME, Autocast, m) {
+    m.impl("float32", forward_<float>);
+    m.impl("float64", forward_<double>);
+    m.impl("float16", forward_<at::Half>);
+    try {
+        m.impl("bfloat16", forward_<at::BFloat16>);
+    } catch (const std::exception& e) {
+        std::cout << "GPU does not support bfloat16. Skipping..." << std::endl;
+        // std::cerr << "Error: " << e.what() << std::endl;
+    }
+}
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("float32", &forward_<float>);
+    m.def("float64", &forward_<double>);
     m.def("float16", &forward_<at::Half>);
     try {
         m.def("bfloat16", &forward_<at::BFloat16>);
