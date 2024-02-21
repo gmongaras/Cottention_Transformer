@@ -303,7 +303,8 @@ class Trainer():
             
             
     def train_model(self):
-        self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", self.num_steps, self.step_ckpt)
+        self.train_model_("Traxap/Pile_Tokenized", self.num_steps, self.step_ckpt)
+        # self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", self.num_steps, self.step_ckpt)
         
         
         
@@ -311,7 +312,8 @@ class Trainer():
         
     def train_model_(self, dataset, num_steps, step_shift):
         # Cache dirs
-        cache_path = "BERT_Trainer/data_cache/dataset_mapped"
+        cache_path = "GPT_Trainer/data_cache/dataset_mapped"
+        # cache_path = "BERT_Trainer/data_cache/dataset_mapped"
         
         # Load in datasets
         if not os.path.exists(cache_path):

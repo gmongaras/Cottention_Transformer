@@ -174,8 +174,6 @@ void compute_attention(
     int N, int H, int S, int d_V, int d_K,
     const int block_size,
     cudaStream_t stream = 0) {
-    // Grid for the matrix multiplication kernel
-    // One block per batch-dimension index, head-dimension index, and both dimensions of VK
 
     // writeTensorToFile("Q.bin", Q, {N, H, S, d_K});
     // writeTensorToFile("K.bin", K, {N, H, S, d_K});
@@ -237,11 +235,11 @@ void forward_call(
 
 // C++ interface
 template<typename dtype_>
-torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V_orig, const int8_t block_size) {
+torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K, torch::Tensor& V, const int8_t block_size) {
     // Check tensor requirements, e.g., dtype, device, etc.
     TORCH_CHECK(Q.device().is_cuda(), "Q must be a CUDA tensor");
-    TORCH_CHECK(K_orig.device().is_cuda(), "K must be a CUDA tensor");
-    TORCH_CHECK(V_orig.device().is_cuda(), "V must be a CUDA tensor");
+    TORCH_CHECK(K.device().is_cuda(), "K must be a CUDA tensor");
+    TORCH_CHECK(V.device().is_cuda(), "V must be a CUDA tensor");
 
     // Get tensor dimensions
     int N = Q.size(0);
@@ -260,9 +258,10 @@ torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V
     // writeTensorToFile("K.bin", K_orig.data_ptr<float>(), {N, H, S, D});
     // writeTensorToFile("V.bin", V_orig.data_ptr<float>(), {N, H, S, D});
 
-    // Unsqueeze K along the last dimension and V along the second-to-last dimension
-    auto K = K_orig.unsqueeze(-1); // (N, H, S, D, 1)
-    auto V = V_orig.unsqueeze(-2); // (N, H, S, 1, D)
+    // // Unsqueeze K along the last dimension and V along the second-to-last dimension
+    // auto K = K_orig.unsqueeze(-1); // (N, H, S, D, 1)
+    // auto V = V_orig.unsqueeze(-2); // (N, H, S, 1, D)
+    // Unsqueeze not needed as I am making the kernel hehe UwU
 
     // Ensure the tensors are contiguous
     Q = Q.contiguous();

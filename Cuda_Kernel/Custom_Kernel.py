@@ -28,12 +28,6 @@ class CustomAttention(torch.autograd.Function):
         # This method receives the gradient of the loss with respect to the output
         # and computes the gradients with respect to the inputs.
         Q, K, V = ctx.saved_tensors
-
-        # # Compute gradients w.r.t inputs. This requires deriving the gradients
-        # # based on your specific operation.
-        # grad_Q = grad_output * (V.sum(-1, keepdims=True)*K).cumsum(2)
-        # grad_K = grad_output * (V.sum(-1, keepdims=True)*Q.flip(2).cumsum(2).flip(2))
-        # grad_V = grad_output * (Q.flip(2).cumsum(2).flip(2) * K).sum(-1, keepdims=True).repeat(1, 1, 1, Q.shape[-1])
         
         # if Q.dtype == torch.float32:
         #     temp = FastAttention.backward.float32(Q.clone(), K.clone(), V.clone(), grad_output)
@@ -49,31 +43,7 @@ class CustomAttention(torch.autograd.Function):
         # return temp, V, K
         
         
-        
-        
-        # # More memory efficient
-        # Q_cumsum = Q.flip(2).cumsum(2).flip(2)
-        # # Q_cumsum = Q + torch.sum(Q, dim=2, keepdims=True) - torch.cumsum(Q, dim=2)
-        # V_sum = V.sum(-1, keepdim=True)
-        # # Q_cumsum = Q.cumsum(dim=2)
-        # # Q_cumsum = Q - Q_cumsum + Q_cumsum[:, :, -1:]
-        # grad_Q = grad_output * (V_sum*K).cumsum(2)
-        # grad_K = grad_output * (V_sum*Q_cumsum)
-        # grad_V = grad_output * (Q_cumsum*K).sum(dim=-1, keepdim=True)
-        
-        
-        
-        
-        # # More memory efficient
-        # Q_cumsum = ((K@grad_output).sum(-1, keepdims=True)).flip(2).cumsum(2).flip(2)
-        # # Q_cumsum = Q + torch.sum(Q, dim=2, keepdims=True) - torch.cumsum(Q, dim=2)
-        # V_sum = V.sum(-1, keepdim=True).repeat(1, 1, 1, Q.shape[-1])
-        # # Q_cumsum = Q.cumsum(dim=2)
-        # # Q_cumsum = Q - Q_cumsum + Q_cumsum[:, :, -1:]
-        # grad_Q = (V_sum*K).cumsum(2)
-        # grad_K = (V_sum*Q_cumsum)
-        # grad_V = (Q_cumsum*K)
-        
+        """
         # Gradient for Q: ((grad_output @ V) * M) @ K
         # grad_Q = ((grad_output @ V.transpose(-1, -2)) * ~torch.triu(torch.ones(1, 1, Q.shape[-2], Q.shape[-2], dtype=torch.bool, device=Q.device), 1).bool()) @ K
         grad_Q = ((V.unsqueeze(-1)*K.unsqueeze(-2)).cumsum(2) * grad_output.unsqueeze(-1)).sum(-2)
@@ -86,6 +56,45 @@ class CustomAttention(torch.autograd.Function):
         # Gradient for V: ((Q@K.T) * M) @ grad_output
         # grad_V = ((Q @ K.transpose(-1, -2)) * ~torch.triu(torch.ones(1, 1, Q.shape[-2], Q.shape[-2], dtype=torch.bool, device=Q.device), 1).bool()).transpose(-1, -2) @ grad_output
         grad_V = (((grad_output.unsqueeze(-1)*Q.unsqueeze(-2)).flip(2).cumsum(2).flip(2) * K.unsqueeze(-2) ).sum(-1))
+        """
+        
+        
+        ### More efficient
+        
+        # # Gradient for Q
+        # grad_Q = ((V.unsqueeze(-1)*K.unsqueeze(-2)).cumsum(2) * grad_output.unsqueeze(-1)).sum(-2)
+        
+        # # Pre-calculate cumsum for grad_output and Q
+        # grad_output_cumsum = (grad_output.unsqueeze(-1)*Q.unsqueeze(-2)).flip(2).cumsum(2).flip(2)
+        
+        # # Gradient for K
+        # grad_K = (grad_output_cumsum * V.unsqueeze(-1) ).sum(-2)
+        
+        # # Gradient for V
+        # grad_V = (grad_output_cumsum * K.unsqueeze(-2) ).sum(-1)
+        
+        
+        
+        
+        
+        
+        ### Custom implementation
+        
+        # Gradient for Q - just a forward pass where (Q = grad_output, K = V, V = K)
+        if Q.dtype == torch.float32:
+            grad_Q = FastAttention.forward.float32(grad_output, V, K, 1)
+            grad_K, grad_V = FastAttention.backward.float32(Q, K, V, grad_output, 1)
+        elif Q.dtype == torch.float64:
+            grad_Q = FastAttention.forward.float64(grad_output, V, K, 1)
+            grad_K, grad_V = FastAttention.backward.float64(Q, K, V, grad_output, 1)
+        elif Q.dtype == torch.float16:
+            grad_Q = FastAttention.forward.float16(grad_output, V, K, 1)
+            grad_K, grad_V = FastAttention.backward.float16(Q, K, V, grad_output, 1)
+        elif Q.dtype == torch.bfloat16:
+            grad_Q = FastAttention.forward.bfloat16(grad_output, V, K, 1)
+            grad_K, grad_V = FastAttention.backward.bfloat16(Q, K, V, grad_output, 1)
+        else:
+            raise ValueError("Only float32, float64, float16, and bfloat16 are supported")
         
 
 
@@ -121,15 +130,15 @@ if __name__ == "__main__":
     print()
     print()
     
-    # Backward pass
-    print("Backward pass")
-    grad_output = torch.rand_like(out1)
-    with profiler.profile(record_shapes=True, use_cuda=True) as prof:
-        with profiler.record_function("Method 1"):
-            FastAttention.backward.float32(Q, K, V, grad_output)
-    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
-    print()
-    print()
+    # # Backward pass
+    # print("Backward pass")
+    # grad_output = torch.rand_like(out1)
+    # with profiler.profile(record_shapes=True, use_cuda=True) as prof:
+    #     with profiler.record_function("Method 1"):
+    #         grad_Q, grad_K, grad_V = FastAttention.backward.float32(Q, K, V, grad_output, 1)
+    # print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+    # print()
+    # print()
     
 
     print("Autograd check")
