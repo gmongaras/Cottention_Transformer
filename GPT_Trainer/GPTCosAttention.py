@@ -150,15 +150,17 @@ class GPTCosAttention(nn.Module):
         query = torch.nn.functional.normalize(query, dim=-1, p=2)
         key = torch.nn.functional.normalize(key, dim=-1, p=2)
         
+        attention_mask = (attention_mask == 0)
+        
         # Scale the values by the length of the sequence
-        value = value / (((causal_mask * (attention_mask==0))).sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()).clamp(min=1)
+        value = value / (((causal_mask * attention_mask)).sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()).clamp(min=1)
         
         
         # Mask query, key, and value layers
         if attention_mask is not None:
-            query = query * (attention_mask == 0).transpose(-1, -2)
-            key = key * (attention_mask == 0).transpose(-1, -2)
-            value = value * (attention_mask == 0).transpose(-1, -2)
+            query = query * attention_mask.transpose(-1, -2)
+            key = key * attention_mask.transpose(-1, -2)
+            value = value * attention_mask.transpose(-1, -2)
         
         
         
