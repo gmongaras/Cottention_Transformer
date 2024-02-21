@@ -1,5 +1,7 @@
 #include <cuda_runtime.h> // For cudaMemcpy and cudaFree
 #include <torch/torch.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <ATen/autocast_mode.h>
 // #include <torch/extension.h>
 #include <vector>
 
@@ -10,7 +12,6 @@
 #include <chrono>
 
 #include <cuda_fp16.h> // Include CUDA half-precision definitions
-
 
 
 
@@ -173,8 +174,6 @@ void compute_attention(
     int N, int H, int S, int d_V, int d_K,
     const int block_size,
     cudaStream_t stream = 0) {
-    // Grid for the matrix multiplication kernel
-    // One block per batch-dimension index, head-dimension index, and both dimensions of VK
 
     // writeTensorToFile("Q.bin", Q, {N, H, S, d_K});
     // writeTensorToFile("K.bin", K, {N, H, S, d_K});
@@ -236,11 +235,11 @@ void forward_call(
 
 // C++ interface
 template<typename dtype_>
-torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V_orig, const int block_size) {
+torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K, torch::Tensor& V, const int8_t block_size) {
     // Check tensor requirements, e.g., dtype, device, etc.
     TORCH_CHECK(Q.device().is_cuda(), "Q must be a CUDA tensor");
-    TORCH_CHECK(K_orig.device().is_cuda(), "K must be a CUDA tensor");
-    TORCH_CHECK(V_orig.device().is_cuda(), "V must be a CUDA tensor");
+    TORCH_CHECK(K.device().is_cuda(), "K must be a CUDA tensor");
+    TORCH_CHECK(V.device().is_cuda(), "V must be a CUDA tensor");
 
     // Get tensor dimensions
     int N = Q.size(0);
@@ -248,43 +247,95 @@ torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K_orig, torch::Tensor& V
     int S = Q.size(2);
     int D = Q.size(3);
 
+    // Get the data type, could be auto casted
+    auto data_type = at::autocast::is_enabled() && Q.scalar_type() == at::kFloat ? at::kHalf : Q.scalar_type();
+
     // Ouput tensor
-    auto output = torch::zeros({N, H, S, D}, torch::TensorOptions().dtype(Q.scalar_type()).device(Q.device()));
+    auto output = torch::zeros({N, H, S, D}, torch::TensorOptions().dtype(data_type).device(Q.device()));
     // auto output = K_orig;
 
     // Allocate memory for the intermediate tensors
-    auto VK = torch::zeros({N, H, block_size, D, D}, torch::TensorOptions().dtype(Q.scalar_type()).device(Q.device()));
+    auto VK = torch::zeros({N, H, block_size, D, D}, torch::TensorOptions().dtype(data_type).device(Q.device()));
 
     // writeTensorToFile("Q.bin", Q.data_ptr<float>(), {N, H, S, D});
     // writeTensorToFile("K.bin", K_orig.data_ptr<float>(), {N, H, S, D});
     // writeTensorToFile("V.bin", V_orig.data_ptr<float>(), {N, H, S, D});
 
-    // Unsqueeze K along the last dimension and V along the second-to-last dimension
-    auto K = K_orig.unsqueeze(-1); // (N, H, S, D, 1)
-    auto V = V_orig.unsqueeze(-2); // (N, H, S, 1, D)
+    // // Unsqueeze K along the last dimension and V along the second-to-last dimension
+    // auto K = K_orig.unsqueeze(-1); // (N, H, S, D, 1)
+    // auto V = V_orig.unsqueeze(-2); // (N, H, S, 1, D)
+    // Unsqueeze not needed as I am making the kernel hehe UwU
 
     // Ensure the tensors are contiguous
-    Q = Q.contiguous();
-    K = K.contiguous();
-    V = V.contiguous();
+    Q = Q.contiguous().to(data_type);
+    K = K.contiguous().to(data_type);
+    V = V.contiguous().to(data_type);
 
-    // Call the CUDA kernel
-    forward_call<dtype_>(
-        Q.data_ptr<dtype_>(),
-        K.data_ptr<dtype_>(),
-        V.data_ptr<dtype_>(),
-        output.data_ptr<dtype_>(),
-        VK.data_ptr<dtype_>(),
-        N, H, S, D, block_size);
+    // c10::impl::ExcludeDispatchKeyGuard no_autocast(c10::DispatchKey::Autocast);
+
+    // https://github.com/Dao-AILab/flash-attention/blob/main/csrc/flash_attn/flash_api.cpp
+    // Otherwise the kernel will be launched from cuda:0 device
+    // Cast to char to avoid compiler warning about narrowing
+    at::cuda::CUDAGuard device_guard{(char)Q.get_device()};
+    // c10::impl::ExcludeDispatchKeyGuard no_autocast(c10::DispatchKey::Autocast);
+
+    // // Call the CUDA kernel
+    // forward_call<dtype_>(
+    //     Q.data_ptr<dtype_>(),
+    //     K.data_ptr<dtype_>(),
+    //     V.data_ptr<dtype_>(),
+    //     output.data_ptr<dtype_>(),
+    //     VK.data_ptr<dtype_>(),
+    //     N, H, S, D, block_size);
+    // forward_call<dtype_>(
+    //     at::autocast::cached_cast(at::kHalf, Q).data_ptr<dtype_>(),
+    //     at::autocast::cached_cast(at::kHalf, K).data_ptr<dtype_>(),
+    //     at::autocast::cached_cast(at::kHalf, V).data_ptr<dtype_>(),
+    //     at::autocast::cached_cast(at::kHalf, output).data_ptr<dtype_>(),
+    //     at::autocast::cached_cast(at::kHalf, VK).data_ptr<dtype_>(),
+    //     N, H, S, D, block_size);
+    // Using AT_DISPATCH_FLOATING_TYPES_AND_HALF to handle different data types
+    AT_DISPATCH_FLOATING_TYPES_AND_HALF(Q.scalar_type(), "forward_cuda", ([&] {
+        forward_call<scalar_t>(
+            Q.data_ptr<scalar_t>(),
+            K.data_ptr<scalar_t>(),
+            V.data_ptr<scalar_t>(),
+            output.data_ptr<scalar_t>(),
+            VK.data_ptr<scalar_t>(),
+            N, H, S, D, block_size);
+    }));
 
     // writeTensorToFile("output.bin", output.data_ptr<float>(), {N, H, S, D});
 
     return output;
 }
 
+// TORCH_LIBRARY(TORCH_EXTENSION_NAME, m) {
+//     m.def("float32", forward_<float>);
+//     m.def("float16", forward_<at::Half>);
+//     try {
+//         m.def("bfloat16", forward_<at::BFloat16>);
+//     } catch (const std::exception& e) {
+//         std::cout << "GPU does not support bfloat16. Skipping..." << std::endl;
+//         // std::cerr << "Error: " << e.what() << std::endl;
+//     }
+// }
+
+TORCH_LIBRARY_IMPL(TORCH_EXTENSION_NAME, Autocast, m) {
+    m.impl("float32", forward_<float>);
+    m.impl("float64", forward_<double>);
+    m.impl("float16", forward_<at::Half>);
+    try {
+        m.impl("bfloat16", forward_<at::BFloat16>);
+    } catch (const std::exception& e) {
+        std::cout << "GPU does not support bfloat16. Skipping..." << std::endl;
+        // std::cerr << "Error: " << e.what() << std::endl;
+    }
+}
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("float32", &forward_<float>);
+    m.def("float64", &forward_<double>);
     m.def("float16", &forward_<at::Half>);
     try {
         m.def("bfloat16", &forward_<at::BFloat16>);

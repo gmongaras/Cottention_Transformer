@@ -5,10 +5,10 @@ setup(
     name='FastAttention',
     ext_modules=[
         CUDAExtension('FastAttention.forward', [
-            'forward.cu',
+            'forward_combined.cu',
         ]),
         CUDAExtension('FastAttention.backward', [
-            'backward.cu',
+            'backward_combined.cu',
         ]),
     ],
     cmdclass={
