@@ -247,12 +247,15 @@ torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K, torch::Tensor& V, con
     int S = Q.size(2);
     int D = Q.size(3);
 
+    // Get the data type, could be auto casted
+    auto data_type = at::autocast::is_enabled() && Q.scalar_type() == at::kFloat ? at::kHalf : Q.scalar_type();
+
     // Ouput tensor
-    auto output = torch::zeros({N, H, S, D}, torch::TensorOptions().dtype(Q.scalar_type()).device(Q.device()));
+    auto output = torch::zeros({N, H, S, D}, torch::TensorOptions().dtype(data_type).device(Q.device()));
     // auto output = K_orig;
 
     // Allocate memory for the intermediate tensors
-    auto VK = torch::zeros({N, H, block_size, D, D}, torch::TensorOptions().dtype(Q.scalar_type()).device(Q.device()));
+    auto VK = torch::zeros({N, H, block_size, D, D}, torch::TensorOptions().dtype(data_type).device(Q.device()));
 
     // writeTensorToFile("Q.bin", Q.data_ptr<float>(), {N, H, S, D});
     // writeTensorToFile("K.bin", K_orig.data_ptr<float>(), {N, H, S, D});
@@ -264,26 +267,26 @@ torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K, torch::Tensor& V, con
     // Unsqueeze not needed as I am making the kernel hehe UwU
 
     // Ensure the tensors are contiguous
-    Q = Q.contiguous();
-    K = K.contiguous();
-    V = V.contiguous();
+    Q = Q.contiguous().to(data_type);
+    K = K.contiguous().to(data_type);
+    V = V.contiguous().to(data_type);
 
     // c10::impl::ExcludeDispatchKeyGuard no_autocast(c10::DispatchKey::Autocast);
 
-    // https://github.com/state-spaces/mamba/blob/main/csrc/selective_scan/selective_scan.cpp
+    // https://github.com/Dao-AILab/flash-attention/blob/main/csrc/flash_attn/flash_api.cpp
     // Otherwise the kernel will be launched from cuda:0 device
     // Cast to char to avoid compiler warning about narrowing
     at::cuda::CUDAGuard device_guard{(char)Q.get_device()};
     // c10::impl::ExcludeDispatchKeyGuard no_autocast(c10::DispatchKey::Autocast);
 
-    // Call the CUDA kernel
-    forward_call<dtype_>(
-        Q.data_ptr<dtype_>(),
-        K.data_ptr<dtype_>(),
-        V.data_ptr<dtype_>(),
-        output.data_ptr<dtype_>(),
-        VK.data_ptr<dtype_>(),
-        N, H, S, D, block_size);
+    // // Call the CUDA kernel
+    // forward_call<dtype_>(
+    //     Q.data_ptr<dtype_>(),
+    //     K.data_ptr<dtype_>(),
+    //     V.data_ptr<dtype_>(),
+    //     output.data_ptr<dtype_>(),
+    //     VK.data_ptr<dtype_>(),
+    //     N, H, S, D, block_size);
     // forward_call<dtype_>(
     //     at::autocast::cached_cast(at::kHalf, Q).data_ptr<dtype_>(),
     //     at::autocast::cached_cast(at::kHalf, K).data_ptr<dtype_>(),
@@ -291,6 +294,16 @@ torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K, torch::Tensor& V, con
     //     at::autocast::cached_cast(at::kHalf, output).data_ptr<dtype_>(),
     //     at::autocast::cached_cast(at::kHalf, VK).data_ptr<dtype_>(),
     //     N, H, S, D, block_size);
+    // Using AT_DISPATCH_FLOATING_TYPES_AND_HALF to handle different data types
+    AT_DISPATCH_FLOATING_TYPES_AND_HALF(Q.scalar_type(), "forward_cuda", ([&] {
+        forward_call<scalar_t>(
+            Q.data_ptr<scalar_t>(),
+            K.data_ptr<scalar_t>(),
+            V.data_ptr<scalar_t>(),
+            output.data_ptr<scalar_t>(),
+            VK.data_ptr<scalar_t>(),
+            N, H, S, D, block_size);
+    }));
 
     // writeTensorToFile("output.bin", output.data_ptr<float>(), {N, H, S, D});
 
