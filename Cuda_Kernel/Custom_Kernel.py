@@ -10,16 +10,18 @@ class CustomAttention(torch.autograd.Function):
         # Save tensors for backward pass
         ctx.save_for_backward(Q, K, V)
         
+        inplace=False
+        
         # # Mark inputs as dirty
         # ctx.mark_dirty(Q, K, V)
         if Q.dtype == torch.float32:
-            return FastAttention.forward.float32(Q, K, V, 1)
+            return FastAttention.forward.float32(Q, K, V, 1, inplace)
         elif Q.dtype == torch.float64:
-            return FastAttention.forward.float64(Q, K, V, 1)
+            return FastAttention.forward.float64(Q, K, V, 1, inplace)
         elif Q.dtype == torch.float16:
-            return FastAttention.forward.float16(Q, K, V, 1)
+            return FastAttention.forward.float16(Q, K, V, 1, inplace)
         elif Q.dtype == torch.bfloat16:
-            return FastAttention.forward.bfloat16(Q, K, V, 1)
+            return FastAttention.forward.bfloat16(Q, K, V, 1, inplace)
         else:
             raise ValueError("Only float32, float64, float16, and bfloat16 are supported")
 
@@ -80,18 +82,20 @@ class CustomAttention(torch.autograd.Function):
         
         ### Custom implementation
         
+        inplace=False
+        
         # Gradient for Q - just a forward pass where (Q = grad_output, K = V, V = K)
         if Q.dtype == torch.float32:
-            grad_Q = FastAttention.forward.float32(grad_output, V, K, 1)
+            grad_Q = FastAttention.forward.float32(grad_output, V, K, 1, inplace)
             grad_K, grad_V = FastAttention.backward.float32(Q, K, V, grad_output, 1)
         elif Q.dtype == torch.float64:
-            grad_Q = FastAttention.forward.float64(grad_output, V, K, 1)
+            grad_Q = FastAttention.forward.float64(grad_output, V, K, 1, inplace)
             grad_K, grad_V = FastAttention.backward.float64(Q, K, V, grad_output, 1)
         elif Q.dtype == torch.float16:
-            grad_Q = FastAttention.forward.float16(grad_output, V, K, 1)
+            grad_Q = FastAttention.forward.float16(grad_output, V, K, 1, inplace)
             grad_K, grad_V = FastAttention.backward.float16(Q, K, V, grad_output, 1)
         elif Q.dtype == torch.bfloat16:
-            grad_Q = FastAttention.forward.bfloat16(grad_output, V, K, 1)
+            grad_Q = FastAttention.forward.bfloat16(grad_output, V, K, 1, inplace)
             grad_K, grad_V = FastAttention.backward.bfloat16(Q, K, V, grad_output, 1)
         else:
             raise ValueError("Only float32, float64, float16, and bfloat16 are supported")
@@ -125,7 +129,7 @@ if __name__ == "__main__":
     print("Forward pass")
     with profiler.profile(record_shapes=True, use_cuda=True) as prof:
         with profiler.record_function("Method 1"):
-            out1 = FastAttention.forward.float32(Q, K, V, 1)
+            out1 = FastAttention.forward.float32(Q, K, V, 1, False)
     print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
     print()
     print()

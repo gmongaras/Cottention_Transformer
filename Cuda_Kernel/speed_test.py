@@ -1,125 +1,99 @@
 import torch
-from GPT_Trainer.GPTCosAttention import GPTCosAttention
-from transformers.models.gptj.modeling_gptj import GPTJAttention
+from Custom_Kernel import CustomAttention
+import timeit
 
+# Normal softmax attention
+def Softmax_Attn(Q, K, V, mask):
+    QK = torch.matmul(Q, K.transpose(-2, -1))
+    QK = QK / torch.sqrt(torch.tensor(256).float())
+    QK = QK.masked_fill(mask == 0, float('-inf'))
+    QK = torch.nn.functional.softmax(QK, dim=-1)
+    output = torch.matmul(QK, V)
+    return output
 
+# Cosine attention - S^2
+def Cosine_Attn_S(Q, K, V, mask):
+    Q_ = torch.nn.functional.normalize(Q, p=2, dim=-1)
+    K_ = torch.nn.functional.normalize(K, p=2, dim=-1)
+    QK = torch.matmul(Q_, K_.transpose(-2, -1)).masked_fill(mask == 0, 0)
+    output = torch.matmul(QK, V)
+    return output
 
+# Cosine attention - d^2
+def Cosine_Attn_d(Q, K, V, mask):
+    Q_ = torch.nn.functional.normalize(Q, p=2, dim=-1)
+    K_ = torch.nn.functional.normalize(K, p=2, dim=-1)
 
-
-def test_model(checkpoint_path, batch_sizes, seq_lens, use_amp=True, train=True):
-    model = Trainer(
-        use_amp=use_amp,
-        dev="gpu",
-        keep_dataset_in_mem=False,
-        load_checkpoint=True,
-        checkpoint_path=checkpoint_path,
-    ).model.module
-    if train:
-        model.train()
-    else:
-        model.eval()
-    config = model.config
     
+    output = CustomAttention.apply(Q_, K_, V)
     
-    def test(batch_size, seq_len):
-        # Clean memory cache
-        torch.cuda.empty_cache()
-        gc.collect()
-        
-        # Time the time to do a forward pass
-        dummy = {
-            "input_ids": torch.randint(0, 100, (batch_size, seq_len), dtype=torch.long).to(model.device),
-            "attention_mask": torch.ones((batch_size, seq_len), dtype=torch.long).bool().to(model.device),
-            "token_type_ids": torch.zeros((batch_size, seq_len), dtype=torch.long).long().to(model.device),
-        }
-        times = []
-        mems = []
-        
-        # Get current memory usage
-        torch.cuda.reset_peak_memory_stats()
-        current_mem = torch.cuda.max_memory_allocated()/1e9
-        
-        for i in range(20):
-            t = time.time()
-            out = model(dummy["input_ids"], attention_mask=dummy["attention_mask"], token_type_ids=dummy["token_type_ids"])
-            times.append(time.time()-t)
-            
-            # loss = torch.nn.functional.cross_entropy(out.prediction_logits, torch.randint(0, 100, (batch_size, seq_len), dtype=torch.long).to(model.device))
-            # loss.backward()
-            
-            # Test memory usage during forward pass
-            mems.append(torch.cuda.max_memory_allocated()/1e9 - current_mem)
-            
-            # Clear computation graph and clean memory
-            del out
-            model.zero_grad()
-            torch.cuda.empty_cache()
-            gc.collect()
-            torch.cuda.reset_peak_memory_stats()
-            
-        return sum(times)/len(times), sum(mems)/len(mems)
+    return output
+
+
+
+
+
+def time_and_memory(N, H, S, D, funct):
+    # Profile the forward and backward methods for each attention mechanism
+    Q = torch.randn(N, H, S, D, device='cuda')
+    K = torch.randn(N, H, S, D, device='cuda')
+    V = torch.randn(N, H, S, D, device='cuda')
+    mask = torch.tril(torch.ones(S, S, device='cuda')).unsqueeze(0).unsqueeze(0)
+    mask = mask.repeat(N, H, 1, 1)
     
-    # Test different sequence lengths and batch sizes
-    times = []
-    mems = []
-    for batch_size in batch_sizes:
-        for seq_len in seq_lens:
-            print(f"Testing batch size {batch_size} and sequence length {seq_len}")
-            t, m = test(batch_size, seq_len)
-            print(f"  Time: ", round(t, 2), "s")
-            print(f"  Memory: ", round(m, 2), "GB")
-            times.append(t)
-            mems.append(m)
-            
-    del model
-    torch.cuda.empty_cache()
-    gc.collect()
+    # Softmax attention
+    Q_ = Q.clone().requires_grad_()
+    K_ = K.clone().requires_grad_()
+    V_ = V.clone().requires_grad_()
+    mem_allocated = torch.cuda.memory_allocated()
+    mem_cached = torch.cuda.memory_reserved()
+    mem_max = torch.cuda.max_memory_allocated()
+    print("Forward")
+    print(timeit.timeit(lambda: funct(Q_, K_, V_, mask), 
+                        number=10))
+    del Q_, K_, V_
+    print("Backward")
+    Q_ = Q.clone().requires_grad_()
+    K_ = K.clone().requires_grad_()
+    V_ = V.clone().requires_grad_()
+    print(timeit.timeit(lambda: torch.autograd.grad(funct(Q_, K_, V_, mask).sum(), 
+                                                    (Q_, K_, V_), retain_graph=True), number=10))
+    print("Memory")
+    print(torch.cuda.memory_allocated() - mem_allocated)
+    print(torch.cuda.memory_reserved() - mem_cached)
+    print(torch.cuda.max_memory_allocated() - mem_max)
+    del Q_, K_, V_, mask, Q, K, V
     torch.cuda.reset_peak_memory_stats()
-    return times, mems
+    torch.cuda.empty_cache()
+
+
+
+
+
 
 
 def main():
-    use_amp = False
-    train = True
-    batch_sizes = [64]
-    seq_lens = [8, 16, 32, 64, 128, 256, 512]
-    models = {
-        "Softmax": "models/redo_lr1e-4_SM/",
-        "Cosine": "models/redo_lr1e-4_Cos_DivLearnLength/"
-    }
+    N = 32
+    H = 16
+    S = 1024
+    D = 1024//H
     
-    names, times, mems = [], [], []
-    for model_name, model_path in models.items():
-        t, m = test_model(model_path, batch_sizes, seq_lens, use_amp=use_amp, train=train)
-        names.append(model_name)
-        times.append(t)
-        mems.append(m)
-        
-    print("Times: ", times)
-    print("Memory: ", mems)
+    # Profile softmax
+    print("Softmax")
+    time_and_memory(N, H, S, D, Softmax_Attn)
+    print()
     
-    # Plot times
-    import matplotlib.pyplot as plt
-    plt.plot(seq_lens, times[0], label=names[0], color="red")
-    plt.plot(seq_lens, times[1], label=names[1], color="blue")
-    plt.legend()
-    plt.xlabel("Sequence Length")
-    plt.ylabel("Time (s)")
-    plt.title("Time vs Sequence Length")
-    plt.savefig("times.png")
-    plt.show()
-    plt.close()
+    # Profile cosine S^2
+    print("Cosine S^2")
+    time_and_memory(N, H, S, D, Cosine_Attn_S)
+    print()
     
-    # Plot memory vs sequence length
-    plt.plot(seq_lens, mems[0], label=names[0], color="red")
-    plt.plot(seq_lens, mems[1], label=names[1], color="blue")
-    plt.xlabel("Sequence Length")
-    plt.ylabel("Memory (GB)")
-    plt.title("Memory vs Sequence Length")
-    plt.legend()
-    plt.savefig("memory.png")
-    plt.show()
-    plt.close()
+    # Profile cosine d^2
+    print("Cosine d^2")
+    time_and_memory(N, H, S, D, Cosine_Attn_d)
+
+    
+
 
 
 
