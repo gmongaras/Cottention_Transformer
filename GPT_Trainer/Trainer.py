@@ -159,6 +159,10 @@ class Trainer():
             self.tokenizer = transformers.AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B", use_fast=False, cache_dir="GPT_Trainer/gpt-j-6B")
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
             self.pad_token = torch.tensor([self.tokenizer.pad_token_id])
+            
+            # Set max sequence length
+            self.tokenizer.model_max_length = 512
+            
             # GPT-J Model. We are training it from scratch
             self.model = transformers.GPTJForCausalLM(config=transformers.GPTJConfig.from_dict({
                 "activation_function": "gelu_new",
@@ -177,7 +181,7 @@ class Trainer():
                 "n_head": 16,
                 "n_inner": None,
                 "n_layer": 20, #28,
-                "n_positions": 2048,
+                "n_positions": self.tokenizer.model_max_length,
                 "resid_pdrop": 0.0,
                 "rotary": True,
                 "rotary_dim": 64,
@@ -256,37 +260,34 @@ class Trainer():
             
         
     def prepare_data(self, batch):
-        # Max lenght of the input
-        max_length = max([len(x["input_ids"]) for x in batch]) + 1 # +1 for the extra pad token
+        # Max length of the input (+1 for the extra pad token), but not more than the model's max length
+        max_length = min(max([len(x["input_ids"]) for x in batch]), self.tokenizer.model_max_length)
         
         
         for i in range(len(batch)):
-            ### Trim the input to max length
-            batch[i]["input_ids"] = batch[i]["input_ids"][:self.tokenizer.model_max_length]
-            batch[i]["attention_mask"] = batch[i]["attention_mask"][:self.tokenizer.model_max_length]
-            batch[i]["token_type_ids"] = batch[i]["token_type_ids"][:self.tokenizer.model_max_length]
+            ### Random window of the max length number of tokens ###
+            if len(batch[i]["input_ids"]) > max_length:
+                start = np.random.randint(0, len(batch[i]["input_ids"]) - max_length)
+                batch[i]["input_ids"] = batch[i]["input_ids"][start:start+max_length]
+                batch[i]["attention_mask"] = batch[i]["attention_mask"][start:start+max_length]
             
             ### Add a pad token to the end without mask to make the model stop itself
             batch[i]["input_ids"] = torch.cat([batch[i]["input_ids"], self.pad_token])
-            batch[i]["attention_mask"] = torch.cat([batch[i]["attention_mask"], torch.tensor([1])])
-            batch[i]["token_type_ids"] = torch.cat([batch[i]["token_type_ids"], torch.tensor([0])])
+            batch[i]["attention_mask"] = torch.cat([batch[i]["attention_mask"], torch.tensor([0])])
         
             ### Pad the input to max length
-            batch[i]["input_ids"] = torch.cat([batch[i]["input_ids"], torch.zeros(max_length - len(batch[i]["input_ids"]), dtype=torch.long)])
-            batch[i]["attention_mask"] = torch.cat([batch[i]["attention_mask"], torch.zeros(max_length - len(batch[i]["attention_mask"]), dtype=torch.long)]).bool()
-            batch[i]["token_type_ids"] = torch.cat([batch[i]["token_type_ids"], torch.ones(max_length - len(batch[i]["token_type_ids"]), dtype=torch.long)])
+            batch[i]["input_ids"] = torch.cat([batch[i]["input_ids"], self.pad_token.repeat(max_length+1 - len(batch[i]["input_ids"]))])
+            batch[i]["attention_mask"] = torch.cat([batch[i]["attention_mask"], torch.zeros(max_length+1 - len(batch[i]["attention_mask"]), dtype=torch.long)]).bool()
             
             ### Labels are input ids shifted by one. Remove the last token from the others to match the labels
             batch[i]["labels"] = batch[i]["input_ids"].clone()[1:]
             batch[i]["input_ids"] = batch[i]["input_ids"][:-1]
             batch[i]["attention_mask"] = batch[i]["attention_mask"][:-1]
-            batch[i]["token_type_ids"] = batch[i]["token_type_ids"][:-1]
                     
         # Stack the data
         return {
             "input_ids": torch.stack([x["input_ids"] for x in batch]),
             "attention_mask": torch.stack([x["attention_mask"] for x in batch]),
-            "token_type_ids": torch.stack([x["token_type_ids"] for x in batch]),
             "labels": torch.stack([x["labels"] for x in batch]),
         }
         
@@ -324,7 +325,7 @@ class Trainer():
         # tokenized_dataset = datasets.load_from_disk("BERT_Trainer/data_cache/dummy_dataset")
         
         # Convert data to torch
-        self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids"])
+        self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
         
         # PyTorch random sampler
         random_sampler = torch.utils.data.RandomSampler(self.tokenized_dataset, replacement=True, num_samples=(num_steps-step_shift)*self.batch_size)
@@ -386,17 +387,19 @@ class Trainer():
             # Get input and labels
             input_ids = batch["input_ids"]
             attention_mask = batch["attention_mask"]
-            token_type_ids = batch["token_type_ids"]
             labels = batch["labels"]
             
             with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
                 # Get model predictions
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
-                outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
+                outputs = self.model(input_ids, attention_mask=attention_mask).logits
+                
+                # Mask labels with -100 where the attention mask is 0. Note that the mask needs to be shifted by one to match the labels
+                labels = torch.where(attention_mask, labels, torch.tensor(-100).to(labels.device))
                 
                 # Loss
-                loss = loss_fct(outputs.logits.view(-1, self.model_ref.config.vocab_size), labels.view(-1).to(outputs.logits.device))
+                loss = loss_fct(outputs.view(-1, self.model_ref.config.vocab_size), labels.view(-1).to(outputs.device))
                 
             # Backpropagate loss
             if self.use_amp:
@@ -455,364 +458,6 @@ class Trainer():
             
             if step % self.num_save_steps == 0:
                 self.save_model(step)
-                
-                
-                
-            # Clear cache
-            # torch.cuda.empty_cache()
-            
-            
-            
-            
-            
-            
-            
-            
-            
-    def pad_batch(self, batch):
-        """
-        Pad the batch of sequences using the tokenizer.
-        Args:
-            batch (DataFrame): The batch to pad.
-            tokenizer: The tokenizer to use for padding.
-        Returns:
-            DataFrame: The padded batch.
-        """
-        # Convert DataFrame to list of dictionaries and then to a dictionary of lists
-        batch_dict = batch.to_dict(orient='list')
-
-        # Get the maximum sequence length in the batch
-        max_length = max(len(ids) for ids in batch_dict["input_ids"])
-        
-        # Convert lists to tensors and pad them
-        batch_dict["input_ids"] = torch.nn.utils.rnn.pad_sequence([torch.tensor(ids, dtype=torch.long) for ids in batch_dict["input_ids"]], 
-                                                                batch_first=True, padding_value=self.tokenizer.pad_token_id)
-        batch_dict["attention_mask"] = torch.nn.utils.rnn.pad_sequence([torch.tensor(mask, dtype=torch.long) for mask in batch_dict["attention_mask"]], 
-                                                                    batch_first=True, padding_value=0)
-        batch_dict["token_type_ids"] = torch.nn.utils.rnn.pad_sequence([torch.tensor(tti, dtype=torch.long) for tti in batch_dict["token_type_ids"]], 
-                                                                    batch_first=True, padding_value=1)
-
-        # Update token type ids for [SEP] token
-        for i, input_ids in enumerate(batch_dict["input_ids"]):
-            sep_index = (input_ids == self.tokenizer.sep_token_id).nonzero(as_tuple=True)[0][0]
-            batch_dict["token_type_ids"][i, sep_index+1:] = 1
-
-        # Convert labels to a tensor
-        batch_dict["labels"] = torch.tensor(batch_dict["label"], dtype=torch.float)
-        # Assuming dataset_name is constant for a batch, convert to a tensor
-        batch_dict["dataset_name"] = torch.tensor(batch_dict["dataset_name"][0], dtype=torch.long)
-
-        return {
-            "input_ids": batch_dict["input_ids"],
-            "attention_mask": batch_dict["attention_mask"],
-            "token_type_ids": batch_dict["token_type_ids"],
-            "labels": batch_dict["labels"],
-            "dataset_name": batch_dict["dataset_name"],
-        }
-    
-    
-    def prepare_batches(self, datasets):
-        """
-        Process a list of datasets (each a separate group), group by batch size, pad each batch, and convert 'dataset_name' to numerical.
-        Args:
-            datasets (list of DataFrame): List of DataFrames, each DataFrame is a group.
-            tokenizer: The tokenizer to use for padding.
-            batch_size (int): The size of each batch.
-        Returns:
-            DataFrame: All groups merged and processed into a single DataFrame.
-        """
-        processed_groups = []
-        batch_indices = np.arange(self.batch_size)
-
-        for dataset in datasets:
-            # Shuffle the dataset
-            dataset = dataset.sample(frac=1).reset_index(drop=True, inplace=False)
-            
-            # Convert 'dataset_name' to numerical
-            dataset['dataset_name'] = self.dataset_name_to_num[dataset['dataset_name'].iloc[0]]
-
-            # Calculate number of batches
-            num_batches = int(np.ceil(len(dataset) / self.batch_size))
-
-            # Process each batch
-            for i in range(num_batches):
-                start_idx = i * self.batch_size
-                end_idx = start_idx + self.batch_size
-
-                # Select and pad the batch
-                batch = dataset.iloc[start_idx:end_idx]
-                padded_batch = self.pad_batch(batch)
-
-                # Append the padded batch
-                processed_groups.append(padded_batch)
-
-        return processed_groups
-            
-            
-    def finetune(self):
-        # Cache dirs
-        cache_path = "GPT_Trainer/data_cache/dataset_ft_mapped"
-        
-        # Load in datasets
-        if not os.path.exists(cache_path):
-            os.makedirs(cache_path)
-        self.tokenized_dataset = datasets.load_dataset("gmongaras/BERT_Base_Cased_512_GLUE_Mapped", cache_dir=cache_path, num_proc=16, keep_in_memory=self.keep_dataset_in_mem)
-        
-        # Subset the dataset and shuffle it
-        for dataset_name in self.tokenized_dataset.keys():
-            if self.finetune_task == "mnli" and dataset_name != "train":
-                self.tokenized_dataset[dataset_name] = {
-                    "matched": self.tokenized_dataset[dataset_name].filter(lambda x: x["dataset_name"] == "mnli_matched_validation"),
-                    "mismatched": self.tokenized_dataset[dataset_name].filter(lambda x: x["dataset_name"] == "mnli_mismatched_validation"),
-                }
-            else:
-                self.tokenized_dataset[dataset_name] = self.tokenized_dataset[dataset_name].filter(lambda x: x["dataset_name"] == self.finetune_task).shuffle()
-        
-        # Convert data to torch
-        if self.finetune_task != "mnli":
-            self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
-        else:
-            self.tokenized_dataset["train"].set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
-            self.tokenized_dataset["validation"]["matched"].set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
-            self.tokenized_dataset["validation"]["mismatched"].set_format(type="torch", columns=["input_ids", "attention_mask", "token_type_ids", "label"])
-        
-        # Get train and validation datasets
-        train_dataset_ = [self.tokenized_dataset["train"].to_pandas()]
-        if self.finetune_task == "mnli":
-            val_dataset_ = {
-                "matched": [self.tokenized_dataset["validation"]["matched"].to_pandas()],
-                "mismatched": [self.tokenized_dataset["validation"]["mismatched"].to_pandas()],
-            }
-        else:
-            val_dataset_ = [self.tokenized_dataset["validation"].to_pandas()]
-        
-        # # Group the huggingface datasets by "dataset_name"
-        # train_dataset = train_dataset.groupby("dataset_name")
-        # val_dataset = val_dataset.groupby("dataset_name")
-        # train_dataset = [train_dataset.get_group(x) for x in train_dataset.groups]
-        # val_dataset = [val_dataset.get_group(x) for x in val_dataset.groups]
-        
-        
-        
-        
-        # Train mode
-        self.model.train()
-        
-        # Initialize wandb run
-        if is_main_process():
-            wandb.init(
-                project="Cos_GPT_Finetune",
-                name=self.wandb_name,
-                notes=None, # May add notes later
-            )
-            wandb.watch(self.model, log_freq=1)
-        
-        # Save wandb run id
-        self.wandb_id = wandb.run.id
-        
-        # Automatic mixed precision
-        if self.use_amp:
-            grad_scaler = torch.cuda.amp.GradScaler()
-            
-            
-            
-        # Iterate for three epochs
-        for epoch in range(4):
-            batch_loss = 0
-            batch_acc = 0
-            
-            # Batch the dataset
-            train_dataset = self.prepare_batches(train_dataset_)
-            if self.finetune_task == "mnli":
-                val_dataset = {
-                    "matched": self.prepare_batches(val_dataset_["matched"]),
-                    "mismatched": self.prepare_batches(val_dataset_["mismatched"]),
-                }
-            else:
-                val_dataset = self.prepare_batches(val_dataset_)
-            
-            # Stored outputs and labels
-            outputs_ = []
-            labels_ = []
-            
-            # Training loop
-            for step, batch in enumerate(tqdm(train_dataset)) if is_main_process() else enumerate(train_dataset):
-                # Get input and labels
-                input_ids = batch["input_ids"].to(self.model.device)
-                attention_mask = batch["attention_mask"].to(self.model.device)
-                token_type_ids = batch["token_type_ids"].to(self.model.device)
-                labels = batch["labels"].to(self.model.device)
-                dataset_name = batch["dataset_name"].cpu().item()
-                
-                with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
-                    # Get model predictions
-                    # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
-                    # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
-                    outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids).logits
-                    
-                    # MSE loss if stsb
-                    if self.num_to_dataset_name[dataset_name] == "stsb":
-                        loss = torch.nn.MSELoss()(outputs, labels.to(outputs.device))
-                    # Cross entropy loss otherwise
-                    else:
-                        loss = torch.nn.CrossEntropyLoss()(outputs, labels.long().to(outputs.device))
-                    
-                # Backpropagate loss
-                if self.use_amp:
-                    grad_scaler.scale(loss).backward()
-                else:
-                    loss.backward()
-                    
-                # Clip gradients
-                if self.use_amp:
-                    grad_scaler.unscale_(self.optimizer)
-                if self.clipping_value is not None:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clipping_value)
-                
-                # Take optimizer step
-                if self.use_amp:
-                    grad_scaler.step(self.optimizer)
-                else:
-                    self.optimizer.step()
-                
-                # # Update scheduler
-                # self.scheduler.step(step+self.step_ckpt)
-                
-                # Step the gradient scaler
-                if self.use_amp:
-                    grad_scaler.update()
-                
-                # Zero gradients
-                self.optimizer.zero_grad()
-                
-                
-                
-                # Update batch losses
-                batch_loss += loss.item()/len(train_dataset)
-                
-                # Update batch accuracy
-                if self.num_to_dataset_name[dataset_name] == "qqp" or self.num_to_dataset_name[dataset_name] == "mrpc":
-                    # F1 score
-                    TP = ((outputs.argmax(dim=-1) == labels.long().to(outputs.device)) & (labels == 1)).sum().item()
-                    FP = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 1)).sum().item()
-                    FN = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 0)).sum().item()
-                    
-                    batch_acc += TP/(TP + 0.5*(FP+FN))/len(train_dataset) if TP + 0.5*(FP+FN) != 0 else 0
-                else:
-                    outputs_ += list(outputs.squeeze(-1).float().cpu().detach().numpy())
-                    labels_ += list(labels.float().cpu().detach().numpy())
-                
-            # Calculate the stsb Pearson correlation
-            if self.num_to_dataset_name[dataset_name] == "stsb":
-                outputs_ = np.array(outputs_)
-                labels_ = np.array(labels_)
-                # batch_acc = 1 - (
-                #         (6*((outputs_ - labels_)**2).sum())
-                #         / (outputs_.shape[0] * (outputs_.shape[0]**2 - 1))
-                #     )
-                batch_acc = abs(np.corrcoef(outputs_, labels_)[0, 1])
-            elif self.num_to_dataset_name[dataset_name] != "qqp" and self.num_to_dataset_name[dataset_name] != "mrpc":
-                batch_acc = (np.stack(outputs_).argmax(-1)==np.stack(labels_)).astype(float).mean()
-            
-            print("Validating...")
-            self.model.eval()
-            def val_loop(dataset):
-                val_batch_loss = 0
-                val_acc = 0
-                
-                # Stored outputs and labels
-                outputs_ = []
-                labels_ = []
-                
-                # Validation loop
-                D = []
-                L = []
-                for step, batch in enumerate(tqdm(dataset)) if is_main_process() else enumerate(dataset):
-                    # Get input and labels
-                    input_ids = batch["input_ids"].to(self.model.device)
-                    attention_mask = batch["attention_mask"].to(self.model.device)
-                    token_type_ids = batch["token_type_ids"].to(self.model.device)
-                    labels = batch["labels"].to(self.model.device)
-                    dataset_name = batch["dataset_name"].cpu().item()
-                    
-                    with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
-                        # Get model predictions
-                        # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
-                        # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_attentions=True)
-                        outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids).logits
-                        
-                        # MSE loss if stsb
-                        if self.num_to_dataset_name[dataset_name] == "stsb":
-                            loss = torch.nn.MSELoss()(outputs, labels.to(outputs.device))
-                        # Cross entropy loss otherwise
-                        else:
-                            loss = torch.nn.CrossEntropyLoss()(outputs, labels.long().to(outputs.device))
-                        
-                    # Update batch losses
-                    val_batch_loss += loss.item()/len(dataset)
-                    
-                    # Update batch accuracy
-                    if self.num_to_dataset_name[dataset_name] == "qqp" or self.num_to_dataset_name[dataset_name] == "mrpc":
-                        # F1 score
-                        TP = ((outputs.argmax(dim=-1) == labels.long().to(outputs.device)) & (labels == 1)).sum().item()
-                        FP = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 1)).sum().item()
-                        FN = ((outputs.argmax(dim=-1) != labels.long().to(outputs.device)) & (outputs.argmax(dim=-1) == 0)).sum().item()
-                        
-                        val_acc += TP/(TP + 0.5*(FP+FN))/len(dataset) if TP + 0.5*(FP+FN) != 0 else 0
-                    else:
-                        outputs_ += list(outputs.squeeze(-1).float().cpu().detach().numpy())
-                        labels_ += list(labels.float().cpu().detach().numpy())
-                        
-                # Calculate the stsb Pearson correlation
-                if self.num_to_dataset_name[dataset_name] == "stsb":
-                    outputs_ = np.array(outputs_)
-                    labels_ = np.array(labels_)
-                    # val_acc = 1 - (
-                    #         (6*((outputs_ - labels_)**2).sum())
-                    #         / (outputs_.shape[0] * (outputs_.shape[0]**2 - 1))
-                    #     ) 
-                    val_acc = abs(np.corrcoef(outputs_, labels_)[0, 1])
-                elif self.num_to_dataset_name[dataset_name] != "qqp" and self.num_to_dataset_name[dataset_name] != "mrpc":
-                    val_acc = (np.stack(outputs_).argmax(-1)==np.stack(labels_)).astype(float).mean()
-                        
-                return val_batch_loss, val_acc
-                        
-            if self.finetune_task == "mnli":
-                val_loss_matched, val_acc_matched = val_loop(val_dataset["matched"])
-                val_loss_mismatched, val_acc_mismatched = val_loop(val_dataset["mismatched"])
-            else:
-                val_batch_loss, val_acc = val_loop(val_dataset)
-                
-            self.model.train()
-                
-                
-                
-                
-            # Log wandb
-            if is_main_process():
-                if self.finetune_task == "mnli":
-                    wandb_args = {
-                        f"loss_finetune_{self.finetune_task}": batch_loss,
-                        f"acc_finetune_{self.finetune_task}": batch_acc,
-                        f"val_loss_finetune_{self.finetune_task}_matched": val_loss_matched,
-                        f"val_acc_finetune_{self.finetune_task}_matched": val_acc_matched,
-                        f"val_loss_finetune_{self.finetune_task}_mismatched": val_loss_mismatched,
-                        f"val_acc_finetune_{self.finetune_task}_mismatched": val_acc_mismatched,
-                    }
-                else:
-                    wandb_args = {
-                        f"loss_finetune_{self.finetune_task}": batch_loss,
-                        f"acc_finetune_{self.finetune_task}": batch_acc,
-                        f"val_loss_finetune_{self.finetune_task}": val_batch_loss,
-                        f"val_acc_finetune_{self.finetune_task}": val_acc,
-                    }
-                
-                wandb.log(wandb_args)
-            
-            
-            
-            # if (step+1+self.step_ckpt) % self.num_save_steps == 0:
-            #     self.save_model(step+self.step_ckpt)
                 
                 
                 
@@ -960,3 +605,43 @@ class Trainer():
             self.scheduler.load_state_dict(torch.load(os.path.join(checkpoint_path, "scheduler.pt"), map_location=self.model.device))
             
         self.pad_token = torch.tensor([self.tokenizer.pad_token_id])
+
+
+
+# GPT in my dreams UwU
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⡿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⡟⠀⣠⣀⠙⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⣄⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⡟⠀⣼⣿⣿⣿⣦⣄⠙⠻⣿⣿⣿⣿⣿⣿⣿⠀⢻⣷⣦⣈⠙⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠛⠛⠛⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⠃⢰⣿⣿⣿⣿⣿⣿⣿⣦⡍⠙⠉⣁⣠⣤⣤⣄⡀⢻⣿⣿⣿⣦⣄⣈⠙⠿⢿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠋⣀⣠⣴⣶⣿⣷⡄⠘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⡏⠀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣄⣀⠛⢿⣿⣿⣿⣿⣷⣾⣿⣿⣿⣿⣿⣿⣷⣶⣄⠛⣿⣿⣿⡿⠟⠋⣠⣴⣾⣿⣿⣿⣿⣿⣿⡇⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⡇⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣌⠻⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣄⠘⣿⠋⠀⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⠁⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣦⡄⠉⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣤⣦⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⠀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⠀⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⡇⠘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢻⣿⡀⢻⣿⣿⣿⠏⢠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣷⡀⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡘⣿⠃⣸⣿⣿⠏⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⡿⠿⠿⠛⠃⣠⣿⣿⡿⠟⠁⢀⣀⣀⡀⠉⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣶⣿⡿⠋⢀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣷⡈⢶⣶⣿⣿⣿⣿⣦⣤⣾⣿⣿⣿⣿⣷⣀⢘⣿⣿⣿⣿⣿⣿⣿⣿⡿⠛⠉⠀⣀⣀⣀⠀⠉⠻⣿⣿⣿⣿⣿⣿⠟⠀⠀⠛⠛⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣷⣄⡛⠟⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣆⣠⣶⣿⣿⣿⣿⣿⣷⣄⠈⣿⣿⣿⣿⣿⣶⣾⣿⡟⠁⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⡟⢁⣾⡟⠿⠛⠉⢻⣿⣿⣿⣿⣧⣀⡀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠟⠁⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⡿⠀⣿⣿⣿⣿⣿⡁⣉⣁⣤⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠛⠛⠛⢿⡿⠿⢿⣿⣿⡀⠠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⡟⠀⠚⠛⣉⣉⣉⡉⠛⢿⣿⣿⣿⣿⣿⣿⡿⢿⣿⠿⢿⣿⣿⡏⣿⣿⣿⣿⣿⣧⣴⣶⣧⡀⢉⣠⣶⣿⣿⣿⣷⡀⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣷⣶⣿⣿⣿⣿⣿⣷⣦⡀⠙⠻⢿⣿⣿⣿⣧⣌⠉⣠⣬⣍⠋⢁⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣾⣿⠿⢿⣿⣿⣿⡇⠘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣉⠙⠛⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠿⠟⠛⠋⠉⠠⠤⣤⣴⣶⣦⣤⣤⣄⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀⠠⣤⣤⣤⣤⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠿⣿⣿⣿⠃⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀⠉⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠋⣉⣠⣤⣶⣶⣤⣤⣄⠀⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⣸⣿⣿⣿⣿⣿⣿⣿⣿⠛⢁⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣆⡈⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⣴⣿⣿⣿⣿⣿⣿⣿⡟⢁⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⣀⣠⣤⡄⠸⣿⣿⣿⣿⣇⠸⣿⡏⢹⣿⣿⡿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣧⡄⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠈⢿⣿⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⠀⣿⣿⣿⣿⣿⣦⣈⠁⠘⠿⣿⡇⢸⠿⠟⢉⣠⣿⣿⣿⣿⣿⣷⡀⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⣧⡄⠹⣿⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⣿⣿⣿⣿⣿⣿⣿⣿⣶⣦⣤⣤⣤⡆⣿⣿⣿⣿⣿⣿⣿⣿⣿⣇⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⠹⣿⠃⢰⣿⣷⣄⠘⣿⣿⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠀⣰⡀⠈⠀⣿⣿⣿⣿⣄⠈⢻⣿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⣿⣿⣿⣿⣿⣿⣿⡏⢻⣿⣿⣿⣿⣇⠹⣿⣿⣿⣿⣿⣿⣿⡿⠁⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠁⣰⣿⣇⠀⢰⣿⣿⣿⣿⣿⣇⠈⢿⣿⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⣿⣿⣿⣿⣿⣿⣿⣧⠘⣿⣿⣿⣿⣿⣄⠻⣿⣿⣿⣿⡿⠟⢀⠰⠻⠿⠿⣿⣿⣿⣿⣿⣿⣿⡟⢀⣼⣿⣿⣿⢠⣿⣿⣿⣿⣿⣿⣿⣇⠈⢻⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠀⣿⣿⣿⣿⣿⣿⣿⣿⡄⢹⣿⣿⣿⣿⣿⣶⣤⣤⣤⣤⣴⣾⣿⣶⡶⠂⣴⣿⣿⣿⣿⡿⠟⠉⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡆⠈⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⢀⣰⣶⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣀⠘⠿⢿⠿⠛⠁⣀⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣇⠀⣿⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⣠⣿⣿⣿⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠛⢁⣠⣤⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⢸⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⢸⣿⣿⣿⣿⡀⢿⣿⣿⣿⣿⣿⣿⣿⣿⡀⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⠘⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⣼⣿
+# ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⢼⣿⣿⣿⣿⡇⠘⣿⣿⣿⣿⣿⣿⣿⣿⡇⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣆⠙⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠁⣴⣿⣿

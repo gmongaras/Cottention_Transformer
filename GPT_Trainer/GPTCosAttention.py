@@ -153,7 +153,7 @@ class GPTCosAttention(nn.Module):
         attention_mask = (attention_mask == 0)
         
         # Scale the values by the length of the sequence
-        value = value / (((causal_mask * attention_mask)).sum(-1).unsqueeze(-1)**self.norm_const.sigmoid()).clamp(min=1)
+        value = value / (((causal_mask * attention_mask)).sum(-1, keepdims=True)**self.norm_const.sigmoid()).clamp(min=1)
         
         
         # Mask query, key, and value layers
@@ -165,7 +165,7 @@ class GPTCosAttention(nn.Module):
         
         
         # if query.shape[-2] > self.head_dim:
-        if True:
+        if False:
             #### Custom Attention ####
             attn_output = CustomAttention.apply(query, key, value)
             #### Custom Attention ####

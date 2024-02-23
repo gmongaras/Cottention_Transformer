@@ -4,9 +4,9 @@
 #SBATCH -p batch
 #SBATCH --exclusive
 #SBATCH -o runjob.out
-#SBATCH --nodes=4
+#SBATCH --nodes=2
 #SBATCH --gres=gpu:8
-#SBATCH --mem=200G
+#SBATCH --mem=500G
 
 nodes=( $( scontrol show hostnames $SLURM_JOB_NODELIST ) )
 nodes_array=($nodes)
@@ -18,9 +18,9 @@ export LOGLEVEL=INFO
 
 cd /users/gmongaras/work/Cottention_Transformer
 srun /home/gmongaras/miniconda3/bin/torchrun \
---nnodes 4 \
+--nnodes 2 \
 --nproc_per_node 8 \
 --rdzv_id $RANDOM \
 --rdzv_backend c10d \
 --rdzv_endpoint $head_node_ip:29500 \
-GPT_Trainer/trainer.py
+GPT_Trainer/train.py
