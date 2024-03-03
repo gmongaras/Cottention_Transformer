@@ -72,6 +72,63 @@ __device__ void AtomicAdd_(at::BFloat16* address, at::BFloat16 val) {
 
 
 
+
+// General __shfl_down_sync
+template<typename T>
+__device__ T __shfl_down_sync_(unsigned mask, T val, int delta, int width = warpSize) {
+    return __shfl_down_sync(mask, val, delta, width);
+}
+// Specialization for half precision
+template<>
+__device__ at::Half __shfl_down_sync_(unsigned mask, at::Half val, int delta, int width) {
+    return __shfl_down_sync(mask, *reinterpret_cast<__half*>(&val), delta, width);
+}
+// Specialization for bfloat16 half precision
+template<>
+__device__ at::BFloat16 __shfl_down_sync_(unsigned mask, at::BFloat16 val, int delta, int width) {
+    return __shfl_down_sync(mask, *reinterpret_cast<__nv_bfloat16*>(&val), delta, width);
+}
+
+
+
+
+
+
+template <typename T>
+__inline__ __device__ T warpReduceSum(T val) {
+    for (int offset = warpSize/2; offset > 0; offset /= 2) {
+        val += __shfl_down_sync_(0xffffffff, val, offset);
+    }
+    return val;
+}
+
+template <typename T>
+__inline__ __device__ T blockReduce(T val) {
+    static __shared__ T shared[32]; // Assuming a maximum of 32 warps per block
+    int lane = threadIdx.x % warpSize;
+    int wid = threadIdx.x / warpSize;
+
+    // Reduce within each warp
+    val = warpReduceSum(val);
+
+    // Write reduced value to shared memory
+    if (lane == 0) shared[wid] = val;
+
+    __syncthreads();
+
+    // Ensure we only proceed with the first warp for final reduction
+    // if (threadIdx.x < blockDim.x / warpSize) val = shared[lane];else val = 0;
+    // The ? operator does not have divergence
+    val = (threadIdx.x < blockDim.x / warpSize) ? shared[lane] : (T)0;
+    if (wid == 0) val = warpReduceSum(val); // Final reduce within the first warp
+
+    __syncthreads();
+
+    return val;
+}
+
+
+
 template<typename T>
 __global__ void forward_kernel(
     const T* Q, const T* K, const T* V,
@@ -79,16 +136,16 @@ __global__ void forward_kernel(
     int N, int H, int S, int d_V, int d_K,
     const int block_size) {
     
-    int n = blockIdx.x; // Batch index
-    int h = blockIdx.y; // Head index
-    int d_v = blockIdx.z; // Dimension index within d_V
+    int n = blockIdx.y; // Batch index
+    int h = blockIdx.z; // Head index
+    int d_v = blockIdx.x; // Dimension index within d_V
     int d_k = threadIdx.x; // Dimension index within d_k
 
 
-    // Ensure we are within bounds
-    if (d_k >= d_K+1 || d_v >= d_V) {
-        return;
-    }
+    // // Ensure we are within bounds
+    // if (d_k >= d_K || d_v >= d_V) {
+    //     return;
+    // }
 
 
     // Allocate shared memory - d_K total elements
@@ -107,7 +164,7 @@ __global__ void forward_kernel(
     // Iterate over the entire sequence
     for (int s = 0; s < S; s++) {
         // Wait for all threads to finish the previous iteration
-        __syncthreads();
+        // __syncthreads();
 
         if (d_k < d_K) {
             // 1: Each thread computes V[:, :, s, d_v] * K[:, :, s, d_k] and adds it to shared[d_k]
@@ -120,12 +177,17 @@ __global__ void forward_kernel(
 
         // 3: Sum all the elements in shared[d_K + d_k] and store it in output[:, :, s, d_v]
         __syncthreads();
+        // if (d_k == 0) {
+        //     T sum_ = 0;
+        //     for (int i = 0; i < d_K; i++) {
+        //         sum_ += shared_memory[d_K + i];
+        //     }
+        //     output[((n * H + h) * S + s) * d_V + d_v] = sum_;
+        // }
+
+        T out = blockReduce<T>(shared_memory[d_K + d_k]);
         if (d_k == 0) {
-            T sum_ = 0;
-            for (int i = 0; i < d_K; i++) {
-                sum_ += shared_memory[d_K + i];
-            }
-            output[((n * H + h) * S + s) * d_V + d_v] = sum_;
+            output[((n * H + h) * S + s) * d_V + d_v] = out;
         }
     }
 }
@@ -143,10 +205,25 @@ void forward_call(
     int d_V = D;
     int d_K = D;
 
-    dim3 grid(N, H, d_V);
+    // What is the maximum number of threads per block?
+    int max_threads_per_block = 1024;
+    // cudaOccupancyMaxActiveBlocksPerMultiprocessor(&max_threads_per_block, forward_kernel<T>, block_size, 0);
+
+    // Get the number of blocks we can do in parallel - the number of times the dimension divides the number of threads
+    int num_blocks = floor(max_threads_per_block / d_V);
+    num_blocks = 1;
+
+    // dim3 grid((int)(d_V/num_blocks), N, H); // Note that d_V is first as it is the fastest changing dimension
+    // dim3 block(d_K, num_blocks); // Note that d_K is first as it is the fastest changing dimension
+    // dim3 block(max_threads_per_block);
+    dim3 grid(d_V, N, H);
     dim3 block(d_K);
     forward_kernel<T><<<grid, block, 2*d_K*sizeof(T), stream>>>(Q, K, V, output, N, H, S, d_V, d_K, block_size);
 }
+
+
+
+
 
 
 
