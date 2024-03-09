@@ -7,8 +7,14 @@ from FastAttention import forward, backward
 class CustomAttention(torch.autograd.Function):
     @staticmethod
     def forward(ctx, Q, K, V):
+        # Ensure Q, K, and V are contiguous
+        Q = Q.contiguous()
+        K = K.contiguous()
+        V = V.contiguous()
+        
         # Save tensors for backward pass
         ctx.save_for_backward(Q, K, V)
+        # ctx.save_for_backward(Q.to(torch.float16), K.to(torch.float16), V.to(torch.float16))
         
         inplace=False
         
@@ -30,6 +36,12 @@ class CustomAttention(torch.autograd.Function):
         # This method receives the gradient of the loss with respect to the output
         # and computes the gradients with respect to the inputs.
         Q, K, V = ctx.saved_tensors
+        
+        # Ensure the tensors are contiguous
+        Q = Q.contiguous()#.to(grad_output.dtype)
+        K = K.contiguous()#.to(grad_output.dtype)
+        V = V.contiguous()#.to(grad_output.dtype)
+        grad_output = grad_output.contiguous()
         
         # if Q.dtype == torch.float32:
         #     temp = FastAttention.backward.float32(Q.clone(), K.clone(), V.clone(), grad_output)
@@ -87,15 +99,23 @@ class CustomAttention(torch.autograd.Function):
         # Gradient for Q - just a forward pass where (Q = grad_output, K = V, V = K)
         if Q.dtype == torch.float32:
             grad_Q = FastAttention.forward.float32(grad_output, V, K, 1, inplace)
+            # grad_K = FastAttention.forward.float32(grad_output, Q, V, 1, inplace)
+            # grad_V = FastAttention.forward.float32(grad_output, K, Q, 1, inplace)
             grad_K, grad_V = FastAttention.backward.float32(Q, K, V, grad_output, 1)
         elif Q.dtype == torch.float64:
             grad_Q = FastAttention.forward.float64(grad_output, V, K, 1, inplace)
+            # grad_K = FastAttention.forward.float64(grad_output, Q, V, 1, inplace)
+            # grad_V = FastAttention.forward.float64(grad_output, K, Q, 1, inplace)
             grad_K, grad_V = FastAttention.backward.float64(Q, K, V, grad_output, 1)
         elif Q.dtype == torch.float16:
             grad_Q = FastAttention.forward.float16(grad_output, V, K, 1, inplace)
+            # grad_K = FastAttention.forward.float16(grad_output, Q, V, 1, inplace)
+            # grad_V = FastAttention.forward.float16(grad_output, K, Q, 1, inplace)
             grad_K, grad_V = FastAttention.backward.float16(Q, K, V, grad_output, 1)
         elif Q.dtype == torch.bfloat16:
             grad_Q = FastAttention.forward.bfloat16(grad_output, V, K, 1, inplace)
+            # grad_K = FastAttention.forward.bfloat16(grad_output, Q, V, 1, inplace)
+            # grad_V = FastAttention.forward.bfloat16(grad_output, K, Q, 1, inplace)
             grad_K, grad_V = FastAttention.backward.bfloat16(Q, K, V, grad_output, 1)
         else:
             raise ValueError("Only float32, float64, float16, and bfloat16 are supported")
@@ -119,7 +139,7 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     torch.set_printoptions(linewidth=200)
     
-    N, H, S, D = 1, 1, 32, 128
+    N, H, S, D = 1, 1, 63, 128
     Q = torch.rand(N, H, S, D, requires_grad=True).cuda()
     K = torch.rand(N, H, S, D, requires_grad=True).cuda()
     V = torch.rand(N, H, S, D, requires_grad=True).cuda()
@@ -134,15 +154,16 @@ if __name__ == "__main__":
     print()
     print()
     
-    # # Backward pass
-    # print("Backward pass")
-    # grad_output = torch.rand_like(out1)
-    # with profiler.profile(record_shapes=True, use_cuda=True) as prof:
-    #     with profiler.record_function("Method 1"):
-    #         grad_Q, grad_K, grad_V = FastAttention.backward.float32(Q, K, V, grad_output, 1)
-    # print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
-    # print()
-    # print()
+    # Backward pass
+    print("Backward pass")
+    grad_output = torch.rand_like(out1)
+    with profiler.profile(record_shapes=True, use_cuda=True) as prof:
+        with profiler.record_function("Method 1"):
+            out1 = FastAttention.forward.float32(Q, K, V, 1, False)
+            grad_K, grad_V = FastAttention.backward.float32(Q, K, V, grad_output, 1)
+    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+    print()
+    print()
     
 
     print("Autograd check")

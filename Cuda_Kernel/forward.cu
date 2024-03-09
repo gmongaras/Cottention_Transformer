@@ -226,14 +226,14 @@ __inline__ __device__ void forward_kernel_double_over_d__v_cache_one_call(
 
 
 
-template<typename T>
+template<typename T, unsigned int inner_loop_size>
 __inline__ __device__ void forward_kernel_double_over_d__v_cache_loop_inner(
     const T* Q, const T* K, const T* V,
     T* output,
     T* shared_memory_cumsum, T* shared_memory_reduce, T* shared_memory_VCache,
     int s_start, int S, int n, int N, int h, int H, int d_k, int d_K, int d_v, int d_V ) {
     #pragma unroll
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < inner_loop_size; i++) {
         forward_kernel_double_over_d__v_cache_one_call<T>(
             Q, K, V, output, shared_memory_cumsum, shared_memory_reduce, shared_memory_VCache, s_start+i, S, n, N, h, H, d_k, d_K, d_v, d_V);
     }
@@ -259,7 +259,7 @@ __inline__ __device__ void forward_kernel_double_over_d__v_cache_loop_inner(
 
 
 
-template<typename T>
+template<typename T, unsigned int inner_loop_size>
 __global__ void forward_kernel_double_over_d__v_cache(
     const T* Q, const T* K, const T* V,
     T* output,
@@ -307,13 +307,13 @@ __global__ void forward_kernel_double_over_d__v_cache(
 
 
     // Iterate over the entire sequence
-    for (int s = 0; s < floor((float)S/8.0); s++) {
-        forward_kernel_double_over_d__v_cache_loop_inner<T>(
-            Q, K, V, output, shared_memory_cumsum, shared_memory_reduce, shared_memory_VCache, s*8, S, n, N, h, H, d_k, d_K, d_v, d_V);
+    for (int s = 0; s < floor((float)S/(float)inner_loop_size); s++) {
+        forward_kernel_double_over_d__v_cache_loop_inner<T, inner_loop_size>(
+            Q, K, V, output, shared_memory_cumsum, shared_memory_reduce, shared_memory_VCache, s*inner_loop_size, S, n, N, h, H, d_k, d_K, d_v, d_V);
     }
 
     // Iterate over the rest
-    for (int s = floor((float)S/8.0)*8; s < S; s++) {
+    for (int s = floor((float)S/(float)inner_loop_size)*inner_loop_size; s < S; s++) {
         forward_kernel_double_over_d__v_cache_one_call<T>(
             Q, K, V, output, shared_memory_cumsum, shared_memory_reduce, shared_memory_VCache, s, S, n, N, h, H, d_k, d_K, d_v, d_V);
     }
@@ -332,12 +332,15 @@ void forward_call_double_over_d__v_cache(
     int d_V = D;
     int d_K = D;
 
+    // Inner loop size is 8
+    const int inner_loop_size = 8;
+
     // dim3 grid((int)(d_V/num_blocks), N, H); // Note that d_V is first as it is the fastest changing dimension
     // dim3 block(d_K, num_blocks); // Note that d_K is first as it is the fastest changing dimension
     // dim3 block(max_threads_per_block);
     dim3 grid(d_V, N, H);
     dim3 block((int)d_K/2);
-    forward_kernel_double_over_d__v_cache<T><<<grid, block, 2*d_K*sizeof(T) + S*sizeof(T), stream>>>(Q, K, V, output, N, H, S, d_V, d_K, block_size);
+    forward_kernel_double_over_d__v_cache<T, inner_loop_size><<<grid, block, 2*d_K*sizeof(T) + S*sizeof(T), stream>>>(Q, K, V, output, N, H, S, d_V, d_K, block_size);
 }
 
 

@@ -2,8 +2,8 @@ import torch
 from Custom_Kernel import CustomAttention
 
 N = 32
-S = 1024
-D = 1024//16
+S = 1023
+D = 2048//16
 
 # Method 1
 def method1(Q, K, V, mask):
@@ -220,7 +220,6 @@ print(torch.cuda.max_memory_allocated() - mem_max)
 
 
 
-exit()
 # Testing backward pass
 print("\n\n\n\n")
 # Method 1

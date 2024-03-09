@@ -75,8 +75,8 @@ def time_and_memory(N, H, S, D, funct):
 def main():
     N = 32
     H = 16
-    S = 128
-    D = 1024//H
+    S = 512
+    D = 2048//H
     
     # Profile softmax
     print("Softmax")
