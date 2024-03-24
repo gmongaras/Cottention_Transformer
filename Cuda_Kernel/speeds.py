@@ -3,7 +3,7 @@ from Custom_Kernel import CustomAttention
 
 N = 32
 S = 1023
-D = 2048//16
+D = 256
 
 # Method 1
 def method1(Q, K, V, mask):

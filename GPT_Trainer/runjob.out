@@ -1,798 +1,0 @@
-Node IP: 10.211.48.17
-[2024-02-08 12:26:09,710] torch.distributed.run: [WARNING] master_addr is only used for static rdzv_backend and when rdzv_endpoint is not specified.
-[2024-02-08 12:26:09,710] torch.distributed.run: [WARNING] 
-[2024-02-08 12:26:09,710] torch.distributed.run: [WARNING] *****************************************
-[2024-02-08 12:26:09,710] torch.distributed.run: [WARNING] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
-[2024-02-08 12:26:09,710] torch.distributed.run: [WARNING] *****************************************
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO] Starting elastic_operator with launch configs:
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   entrypoint       : GPT_Trainer/trainer.py
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   min_nodes        : 4
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   max_nodes        : 4
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   nproc_per_node   : 8
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   run_id           : 23130
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   rdzv_backend     : c10d
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   rdzv_endpoint    : 10.211.48.17:29500
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   rdzv_configs     : {'timeout': 900}
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   max_restarts     : 0
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   monitor_interval : 5
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   log_dir          : None
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO]   metrics_cfg      : {}
-[2024-02-08 12:26:09,710] torch.distributed.launcher.api: [INFO] 
-[2024-02-08 12:26:09,795] torch.distributed.run: [WARNING] master_addr is only used for static rdzv_backend and when rdzv_endpoint is not specified.
-[2024-02-08 12:26:09,795] torch.distributed.run: [WARNING] 
-[2024-02-08 12:26:09,795] torch.distributed.run: [WARNING] *****************************************
-[2024-02-08 12:26:09,795] torch.distributed.run: [WARNING] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
-[2024-02-08 12:26:09,795] torch.distributed.run: [WARNING] *****************************************
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO] Starting elastic_operator with launch configs:
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   entrypoint       : GPT_Trainer/trainer.py
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   min_nodes        : 4
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   max_nodes        : 4
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   nproc_per_node   : 8
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   run_id           : 23130
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   rdzv_backend     : c10d
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   rdzv_endpoint    : 10.211.48.17:29500
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   rdzv_configs     : {'timeout': 900}
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   max_restarts     : 0
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   monitor_interval : 5
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   log_dir          : None
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO]   metrics_cfg      : {}
-[2024-02-08 12:26:09,795] torch.distributed.launcher.api: [INFO] 
-[2024-02-08 12:26:09,853] torch.distributed.run: [WARNING] master_addr is only used for static rdzv_backend and when rdzv_endpoint is not specified.
-[2024-02-08 12:26:09,853] torch.distributed.run: [WARNING] 
-[2024-02-08 12:26:09,853] torch.distributed.run: [WARNING] *****************************************
-[2024-02-08 12:26:09,853] torch.distributed.run: [WARNING] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
-[2024-02-08 12:26:09,853] torch.distributed.run: [WARNING] *****************************************
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO] Starting elastic_operator with launch configs:
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   entrypoint       : GPT_Trainer/trainer.py
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   min_nodes        : 4
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   max_nodes        : 4
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   nproc_per_node   : 8
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   run_id           : 23130
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   rdzv_backend     : c10d
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   rdzv_endpoint    : 10.211.48.17:29500
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   rdzv_configs     : {'timeout': 900}
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   max_restarts     : 0
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   monitor_interval : 5
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   log_dir          : None
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO]   metrics_cfg      : {}
-[2024-02-08 12:26:09,853] torch.distributed.launcher.api: [INFO] 
-[2024-02-08 12:26:10,044] torch.distributed.run: [WARNING] master_addr is only used for static rdzv_backend and when rdzv_endpoint is not specified.
-[2024-02-08 12:26:10,044] torch.distributed.run: [WARNING] 
-[2024-02-08 12:26:10,044] torch.distributed.run: [WARNING] *****************************************
-[2024-02-08 12:26:10,044] torch.distributed.run: [WARNING] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
-[2024-02-08 12:26:10,044] torch.distributed.run: [WARNING] *****************************************
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO] Starting elastic_operator with launch configs:
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   entrypoint       : GPT_Trainer/trainer.py
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   min_nodes        : 4
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   max_nodes        : 4
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   nproc_per_node   : 8
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   run_id           : 23130
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   rdzv_backend     : c10d
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   rdzv_endpoint    : 10.211.48.17:29500
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   rdzv_configs     : {'timeout': 900}
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   max_restarts     : 0
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   monitor_interval : 5
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   log_dir          : None
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO]   metrics_cfg      : {}
-[2024-02-08 12:26:10,044] torch.distributed.launcher.api: [INFO] 
-[2024-02-08 12:26:10,048] torch.distributed.elastic.agent.server.local_elastic_agent: [INFO] log directory set to: /tmp/torchelastic_m38fwh05/23130_z73717s_
-[2024-02-08 12:26:10,048] torch.distributed.elastic.agent.server.api: [INFO] [default] starting workers for entrypoint: python
-[2024-02-08 12:26:10,048] torch.distributed.elastic.agent.server.api: [INFO] [default] Rendezvous'ing worker group
-[2024-02-08 12:26:10,715] torch.distributed.elastic.agent.server.local_elastic_agent: [INFO] log directory set to: /tmp/torchelastic_ktlbb1z9/23130_7s565hpq
-[2024-02-08 12:26:10,715] torch.distributed.elastic.agent.server.api: [INFO] [default] starting workers for entrypoint: python
-[2024-02-08 12:26:10,715] torch.distributed.elastic.agent.server.api: [INFO] [default] Rendezvous'ing worker group
-[2024-02-08 12:26:10,799] torch.distributed.elastic.agent.server.local_elastic_agent: [INFO] log directory set to: /tmp/torchelastic_hu1wyzk4/23130_6m62jtyk
-[2024-02-08 12:26:10,799] torch.distributed.elastic.agent.server.api: [INFO] [default] starting workers for entrypoint: python
-[2024-02-08 12:26:10,799] torch.distributed.elastic.agent.server.api: [INFO] [default] Rendezvous'ing worker group
-[2024-02-08 12:26:10,871] torch.distributed.elastic.agent.server.local_elastic_agent: [INFO] log directory set to: /tmp/torchelastic_0a26j9em/23130_sgzfdej8
-[2024-02-08 12:26:10,871] torch.distributed.elastic.agent.server.api: [INFO] [default] starting workers for entrypoint: python
-[2024-02-08 12:26:10,871] torch.distributed.elastic.agent.server.api: [INFO] [default] Rendezvous'ing worker group
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO] [default] Rendezvous complete for workers. Result:
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   restart_count=0
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   master_addr=bcm-dgxa100-0014.cm.cluster
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   master_port=48449
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   group_rank=3
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   group_world_size=4
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   local_ranks=[0, 1, 2, 3, 4, 5, 6, 7]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   role_ranks=[24, 25, 26, 27, 28, 29, 30, 31]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   global_ranks=[24, 25, 26, 27, 28, 29, 30, 31]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO] [default] Rendezvous complete for workers. Result:
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   restart_count=0
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   master_addr=bcm-dgxa100-0014.cm.cluster
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   master_port=48449
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   group_rank=0
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   group_world_size=4
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   local_ranks=[0, 1, 2, 3, 4, 5, 6, 7]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   role_ranks=[0, 1, 2, 3, 4, 5, 6, 7]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   global_ranks=[0, 1, 2, 3, 4, 5, 6, 7]
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO] [default] Rendezvous complete for workers. Result:
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   restart_count=0
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   master_addr=bcm-dgxa100-0014.cm.cluster
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   master_port=48449
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   group_rank=2
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   group_world_size=4
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   local_ranks=[0, 1, 2, 3, 4, 5, 6, 7]
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   role_ranks=[16, 17, 18, 19, 20, 21, 22, 23]
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   global_ranks=[16, 17, 18, 19, 20, 21, 22, 23]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO] [default] Rendezvous complete for workers. Result:
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   restart_count=0
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   master_addr=bcm-dgxa100-0014.cm.cluster
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   master_port=48449
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   group_rank=1
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   group_world_size=4
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   local_ranks=[0, 1, 2, 3, 4, 5, 6, 7]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   role_ranks=[8, 9, 10, 11, 12, 13, 14, 15]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   global_ranks=[8, 9, 10, 11, 12, 13, 14, 15]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   role_world_sizes=[32, 32, 32, 32, 32, 32, 32, 32]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   global_world_sizes=[32, 32, 32, 32, 32, 32, 32, 32]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO] 
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   role_world_sizes=[32, 32, 32, 32, 32, 32, 32, 32]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   global_world_sizes=[32, 32, 32, 32, 32, 32, 32, 32]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO] 
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   role_world_sizes=[32, 32, 32, 32, 32, 32, 32, 32]
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO]   global_world_sizes=[32, 32, 32, 32, 32, 32, 32, 32]
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO] 
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   role_world_sizes=[32, 32, 32, 32, 32, 32, 32, 32]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO]   global_world_sizes=[32, 32, 32, 32, 32, 32, 32, 32]
-[2024-02-08 12:26:11,992] torch.distributed.elastic.agent.server.api: [INFO] 
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO] [default] Starting worker group
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO] [default] Starting worker group
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO] [default] Starting worker group
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.api: [INFO] [default] Starting worker group
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.local_elastic_agent: [INFO] Environment variable 'TORCHELASTIC_ENABLE_FILE_TIMER' not found. Do not start FileTimerServer.
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.local_elastic_agent: [INFO] Environment variable 'TORCHELASTIC_ENABLE_FILE_TIMER' not found. Do not start FileTimerServer.
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.local_elastic_agent: [INFO] Environment variable 'TORCHELASTIC_ENABLE_FILE_TIMER' not found. Do not start FileTimerServer.
-[2024-02-08 12:26:11,993] torch.distributed.elastic.agent.server.local_elastic_agent: [INFO] Environment variable 'TORCHELASTIC_ENABLE_FILE_TIMER' not found. Do not start FileTimerServer.
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker0 reply file to: /tmp/torchelastic_0a26j9em/23130_sgzfdej8/attempt_0/0/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker0 reply file to: /tmp/torchelastic_m38fwh05/23130_z73717s_/attempt_0/0/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker0 reply file to: /tmp/torchelastic_ktlbb1z9/23130_7s565hpq/attempt_0/0/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker0 reply file to: /tmp/torchelastic_hu1wyzk4/23130_6m62jtyk/attempt_0/0/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker1 reply file to: /tmp/torchelastic_0a26j9em/23130_sgzfdej8/attempt_0/1/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker1 reply file to: /tmp/torchelastic_m38fwh05/23130_z73717s_/attempt_0/1/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker1 reply file to: /tmp/torchelastic_ktlbb1z9/23130_7s565hpq/attempt_0/1/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker1 reply file to: /tmp/torchelastic_hu1wyzk4/23130_6m62jtyk/attempt_0/1/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker2 reply file to: /tmp/torchelastic_0a26j9em/23130_sgzfdej8/attempt_0/2/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker2 reply file to: /tmp/torchelastic_m38fwh05/23130_z73717s_/attempt_0/2/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker2 reply file to: /tmp/torchelastic_ktlbb1z9/23130_7s565hpq/attempt_0/2/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker2 reply file to: /tmp/torchelastic_hu1wyzk4/23130_6m62jtyk/attempt_0/2/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker3 reply file to: /tmp/torchelastic_0a26j9em/23130_sgzfdej8/attempt_0/3/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker3 reply file to: /tmp/torchelastic_m38fwh05/23130_z73717s_/attempt_0/3/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker3 reply file to: /tmp/torchelastic_ktlbb1z9/23130_7s565hpq/attempt_0/3/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker3 reply file to: /tmp/torchelastic_hu1wyzk4/23130_6m62jtyk/attempt_0/3/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker4 reply file to: /tmp/torchelastic_0a26j9em/23130_sgzfdej8/attempt_0/4/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker4 reply file to: /tmp/torchelastic_m38fwh05/23130_z73717s_/attempt_0/4/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker4 reply file to: /tmp/torchelastic_ktlbb1z9/23130_7s565hpq/attempt_0/4/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker4 reply file to: /tmp/torchelastic_hu1wyzk4/23130_6m62jtyk/attempt_0/4/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker5 reply file to: /tmp/torchelastic_0a26j9em/23130_sgzfdej8/attempt_0/5/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker5 reply file to: /tmp/torchelastic_m38fwh05/23130_z73717s_/attempt_0/5/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker5 reply file to: /tmp/torchelastic_ktlbb1z9/23130_7s565hpq/attempt_0/5/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker5 reply file to: /tmp/torchelastic_hu1wyzk4/23130_6m62jtyk/attempt_0/5/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker6 reply file to: /tmp/torchelastic_0a26j9em/23130_sgzfdej8/attempt_0/6/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker6 reply file to: /tmp/torchelastic_m38fwh05/23130_z73717s_/attempt_0/6/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker6 reply file to: /tmp/torchelastic_ktlbb1z9/23130_7s565hpq/attempt_0/6/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker6 reply file to: /tmp/torchelastic_hu1wyzk4/23130_6m62jtyk/attempt_0/6/error.json
-[2024-02-08 12:26:11,993] torch.distributed.elastic.multiprocessing: [INFO] Setting worker7 reply file to: /tmp/torchelastic_0a26j9em/23130_sgzfdej8/attempt_0/7/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker7 reply file to: /tmp/torchelastic_m38fwh05/23130_z73717s_/attempt_0/7/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker7 reply file to: /tmp/torchelastic_ktlbb1z9/23130_7s565hpq/attempt_0/7/error.json
-[2024-02-08 12:26:11,994] torch.distributed.elastic.multiprocessing: [INFO] Setting worker7 reply file to: /tmp/torchelastic_hu1wyzk4/23130_6m62jtyk/attempt_0/7/error.json
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-Traceback (most recent call last):
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/trainer.py", line 62, in <module>
-    main()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/trainer.py", line 55, in main
-    trainer()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 302, in __call__
-    self.train_model()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 308, in train_model
-    self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0)
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 321, in train_model_
-    self.tokenized_dataset = datasets.load_dataset(dataset, cache_dir=cache_path, num_proc=16, keep_in_memory=self.keep_dataset_in_mem)["train"]
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 2129, in load_dataset
-    builder_instance = load_dataset_builder(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1815, in load_dataset_builder
-    dataset_module = dataset_module_factory(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1512, in dataset_module_factory
-    raise e1 from None
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1496, in dataset_module_factory
-    ).get_module()
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1048, in get_module
-    data_files = DataFilesDict.from_patterns(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 674, in from_patterns
-    DataFilesList.from_patterns(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 579, in from_patterns
-    resolve_pattern(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 333, in resolve_pattern
-    fs, _, _ = get_fs_token_paths(pattern, storage_options=storage_options)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/core.py", line 622, in get_fs_token_paths
-    paths = [f for f in sorted(fs.glob(paths)) if not fs.isdir(f)]
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 565, in glob
-    allpaths = self.find(root, maxdepth=depth, withdirs=True, detail=True, **kwargs)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 466, in find
-    for _, dirs, files in self.walk(path, maxdepth, detail=True, **kwargs):
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 403, in walk
-    listing = self.ls(path, detail=True, **kwargs)
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/huggingface_hub/hf_file_system.py", line 300, in ls
-    "last_modified": parse_datetime(tree_item["lastCommit"]["date"]),
-KeyError: 'lastCommit'
-Traceback (most recent call last):
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/trainer.py", line 62, in <module>
-    main()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/trainer.py", line 55, in main
-    trainer()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 302, in __call__
-    self.train_model()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 308, in train_model
-    self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0)
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 321, in train_model_
-    self.tokenized_dataset = datasets.load_dataset(dataset, cache_dir=cache_path, num_proc=16, keep_in_memory=self.keep_dataset_in_mem)["train"]
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 2129, in load_dataset
-    builder_instance = load_dataset_builder(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1815, in load_dataset_builder
-    dataset_module = dataset_module_factory(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1512, in dataset_module_factory
-    raise e1 from None
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1496, in dataset_module_factory
-    ).get_module()
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1048, in get_module
-    data_files = DataFilesDict.from_patterns(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 674, in from_patterns
-    DataFilesList.from_patterns(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 579, in from_patterns
-    resolve_pattern(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 333, in resolve_pattern
-    fs, _, _ = get_fs_token_paths(pattern, storage_options=storage_options)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/core.py", line 622, in get_fs_token_paths
-    paths = [f for f in sorted(fs.glob(paths)) if not fs.isdir(f)]
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 565, in glob
-    allpaths = self.find(root, maxdepth=depth, withdirs=True, detail=True, **kwargs)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 466, in find
-    for _, dirs, files in self.walk(path, maxdepth, detail=True, **kwargs):
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 403, in walk
-    listing = self.ls(path, detail=True, **kwargs)
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/huggingface_hub/hf_file_system.py", line 300, in ls
-    "last_modified": parse_datetime(tree_item["lastCommit"]["date"]),
-KeyError: 'lastCommit'
-Traceback (most recent call last):
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/trainer.py", line 62, in <module>
-    main()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/trainer.py", line 55, in main
-    trainer()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 302, in __call__
-    self.train_model()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 308, in train_model
-    self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0)
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 321, in train_model_
-    self.tokenized_dataset = datasets.load_dataset(dataset, cache_dir=cache_path, num_proc=16, keep_in_memory=self.keep_dataset_in_mem)["train"]
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 2129, in load_dataset
-    builder_instance = load_dataset_builder(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1815, in load_dataset_builder
-    dataset_module = dataset_module_factory(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1512, in dataset_module_factory
-    raise e1 from None
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1496, in dataset_module_factory
-    ).get_module()
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1048, in get_module
-    data_files = DataFilesDict.from_patterns(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 674, in from_patterns
-    DataFilesList.from_patterns(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 579, in from_patterns
-    resolve_pattern(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 333, in resolve_pattern
-    fs, _, _ = get_fs_token_paths(pattern, storage_options=storage_options)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/core.py", line 622, in get_fs_token_paths
-    paths = [f for f in sorted(fs.glob(paths)) if not fs.isdir(f)]
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 565, in glob
-    allpaths = self.find(root, maxdepth=depth, withdirs=True, detail=True, **kwargs)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 466, in find
-    for _, dirs, files in self.walk(path, maxdepth, detail=True, **kwargs):
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 403, in walk
-    listing = self.ls(path, detail=True, **kwargs)
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/huggingface_hub/hf_file_system.py", line 300, in ls
-    "last_modified": parse_datetime(tree_item["lastCommit"]["date"]),
-KeyError: 'lastCommit'
-Traceback (most recent call last):
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/trainer.py", line 62, in <module>
-    main()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/trainer.py", line 55, in main
-    trainer()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 302, in __call__
-    self.train_model()
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 308, in train_model
-    self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", int(self.num_steps*self.per_short_steps) - self.step_ckpt, 0)
-  File "/work/users/gmongaras/Cottention_Transformer/GPT_Trainer/Trainer.py", line 321, in train_model_
-    self.tokenized_dataset = datasets.load_dataset(dataset, cache_dir=cache_path, num_proc=16, keep_in_memory=self.keep_dataset_in_mem)["train"]
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 2129, in load_dataset
-    builder_instance = load_dataset_builder(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1815, in load_dataset_builder
-    dataset_module = dataset_module_factory(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1512, in dataset_module_factory
-    raise e1 from None
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1496, in dataset_module_factory
-    ).get_module()
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/load.py", line 1048, in get_module
-    data_files = DataFilesDict.from_patterns(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 674, in from_patterns
-    DataFilesList.from_patterns(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 579, in from_patterns
-    resolve_pattern(
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/datasets/data_files.py", line 333, in resolve_pattern
-    fs, _, _ = get_fs_token_paths(pattern, storage_options=storage_options)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/core.py", line 622, in get_fs_token_paths
-    paths = [f for f in sorted(fs.glob(paths)) if not fs.isdir(f)]
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 565, in glob
-    allpaths = self.find(root, maxdepth=depth, withdirs=True, detail=True, **kwargs)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 466, in find
-    for _, dirs, files in self.walk(path, maxdepth, detail=True, **kwargs):
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/fsspec/spec.py", line 403, in walk
-    listing = self.ls(path, detail=True, **kwargs)
-  File "/users/gmongaras/.local/lib/python3.10/site-packages/huggingface_hub/hf_file_system.py", line 300, in ls
-    "last_modified": parse_datetime(tree_item["lastCommit"]["date"]),
-KeyError: 'lastCommit'
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:  25%|██▌       | 27/106 [00:00<00:00, 266.25it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:  24%|██▎       | 25/106 [00:00<00:00, 242.83it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 726.47it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 321472.32it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:  22%|██▏       | 23/106 [00:00<00:00, 213.64it/s]Resolving data files:  19%|█▉        | 20/106 [00:00<00:00, 139.86it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   1%|          | 1/106 [00:00<00:12,  8.68it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 474.60it/s]
-Resolving data files:  51%|█████     | 54/106 [00:00<00:00, 234.47it/s]Resolving data files:  14%|█▍        | 15/106 [00:00<00:00, 117.62it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 453.32it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:  24%|██▎       | 25/106 [00:00<00:00, 185.37it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 468.25it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 216243.30it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 319393.84it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 254345.67it/s]
-Resolving data files:  42%|████▏     | 45/106 [00:00<00:00, 183.64it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:  60%|██████    | 64/106 [00:00<00:00, 132.70it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 241.42it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:  20%|█▉        | 21/106 [00:00<00:00, 185.20it/s]Resolving data files:  38%|███▊      | 40/106 [00:00<00:00, 80.06it/s] Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 232.65it/s]
-Resolving data files:   6%|▌         | 6/106 [00:00<00:05, 17.53it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 288.52it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 336560.35it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 237497.98it/s]
-Resolving data files:   8%|▊         | 8/106 [00:00<00:04, 24.22it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 247135.20it/s]
-Resolving data files:  13%|█▎        | 14/106 [00:00<00:01, 76.10it/s]Resolving data files:  15%|█▌        | 16/106 [00:00<00:00, 92.88it/s]Resolving data files:  28%|██▊       | 30/106 [00:00<00:00, 92.28it/s]Resolving data files:  25%|██▍       | 26/106 [00:00<00:00, 88.12it/s]Resolving data files:  25%|██▌       | 27/106 [00:00<00:01, 65.90it/s] Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 240.29it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 272.99it/s]
-Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 253.84it/s]
-Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 281.62it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 275121.43it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   8%|▊         | 9/106 [00:00<00:03, 27.34it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 320.67it/s]
-Resolving data files:   2%|▏         | 2/106 [00:00<00:06, 16.12it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 286466.64it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 223190.88it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 295216.62it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 311997.35it/s]
-Resolving data files:   3%|▎         | 3/106 [00:00<00:03, 28.26it/s]Resolving data files:  42%|████▏     | 45/106 [00:00<00:00, 236.35it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 469.92it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 224090.84it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   1%|          | 1/106 [00:00<00:11,  9.36it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   8%|▊         | 8/106 [00:00<00:01, 69.95it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 609.18it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 383272.61it/s]
-Resolving data files:  24%|██▎       | 25/106 [00:00<00:00, 131.40it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 490.96it/s]
-Resolving data files:   5%|▍         | 5/106 [00:00<00:02, 37.39it/s]Resolving data files:  14%|█▍        | 15/106 [00:00<00:01, 54.33it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 382.78it/s]
-Resolving data files:  17%|█▋        | 18/106 [00:00<00:00, 158.29it/s]Resolving data files:  39%|███▊      | 41/106 [00:00<00:00, 161.87it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 373.11it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 195083.91it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 194742.10it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 334282.88it/s]
-Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 489.39it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 258937.81it/s]
-Resolving data files:  32%|███▏      | 34/106 [00:00<00:00, 78.36it/s] Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 255.98it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 227298.68it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   7%|▋         | 7/106 [00:00<00:01, 63.22it/s]Resolving data files:  27%|██▋       | 29/106 [00:00<00:00, 129.90it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 440.18it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 247548.01it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   7%|▋         | 7/106 [00:00<00:02, 34.53it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 393.35it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 282104.20it/s]
-Resolving data files:  16%|█▌        | 17/106 [00:00<00:01, 82.48it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 353.64it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 201905.64it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   5%|▍         | 5/106 [00:00<00:06, 16.27it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 279.58it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 269126.04it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:  20%|█▉        | 21/106 [00:00<00:00, 158.03it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 629.74it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 271592.07it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   4%|▍         | 4/106 [00:00<00:04, 21.67it/s]Resolving data files:  35%|███▍      | 37/106 [00:00<00:00, 122.42it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 304.34it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 219988.24it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:  16%|█▌        | 17/106 [00:00<00:00, 147.73it/s]Resolving data files:   5%|▍         | 5/106 [00:00<00:03, 26.89it/s]Resolving data files:  33%|███▎      | 35/106 [00:00<00:00, 130.85it/s]Resolving data files:  30%|███       | 32/106 [00:00<00:00, 86.53it/s] Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 276.56it/s]
-Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 306.38it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 218153.20it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 281390.02it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files:  18%|█▊        | 19/106 [00:00<00:01, 71.26it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 289.34it/s]
-Resolving data files:   0%|          | 0/106 [00:00<?, ?it/s]Resolving data files: 100%|██████████| 106/106 [00:00<00:00, 190160.92it/s]
-wandb: Currently logged in as: gmongaras (gmongaras1). Use `wandb login --relogin` to force relogin
-wandb: wandb version 0.16.3 is available!  To upgrade, please run:
-wandb:  $ pip install wandb --upgrade
-wandb: Tracking run with wandb version 0.16.1
-wandb: Run data is saved locally in /work/users/gmongaras/Cottention_Transformer/wandb/run-20240208_123111-zra8tzlz
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run redo_lr1e-4_SM_ShortSeqLenBeg
-wandb: ⭐️ View project at https://wandb.ai/gmongaras1/Cos_GPT
-wandb: 🚀 View run at https://wandb.ai/gmongaras1/Cos_GPT/runs/zra8tzlz
-[E ProcessGroupNCCL.cpp:474] [Rank 23] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800092 milliseconds before timing out.
-  0%|          | 0/900000 [00:00<?, ?it/s][E ProcessGroupNCCL.cpp:474] [Rank 3] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800201 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 11] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800036 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 16] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800156 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 9] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800135 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 1] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800323 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 15] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800062 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 10] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800103 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 12] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800078 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 4] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800295 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 7] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800273 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 19] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800317 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 5] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800371 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 20] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800392 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 21] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800453 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 18] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800082 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 26] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800875 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 24] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800544 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 27] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800664 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 30] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800534 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 25] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800675 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 31] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800874 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 28] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800521 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 13] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800989 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 8] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800992 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 14] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800767 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:474] [Rank 22] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800811 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 21] NCCL watchdog thread terminated with exception: [Rank 21] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800453 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:915] [Rank 18] NCCL watchdog thread terminated with exception: [Rank 18] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800082 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:915] [Rank 23] NCCL watchdog thread terminated with exception: [Rank 23] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800092 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:915] [Rank 16] NCCL watchdog thread terminated with exception: [Rank 16] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800156 milliseconds before timing out.
-terminate called after throwing an instance of '[E ProcessGroupNCCL.cpp:915] [Rank 19] NCCL watchdog thread terminated with exception: [Rank 19] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800317 milliseconds before timing out.
-std::runtime_error'
-  what():  [Rank 21] NCCL watchdog thread terminated with exception: [Rank 21] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800453 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:915] [Rank 20] NCCL watchdog thread terminated with exception: [Rank 20] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800392 milliseconds before timing out.
-terminate called after throwing an instance of 'terminate called after throwing an instance of 'std::runtime_errorstd::runtime_error'
-'
-terminate called after throwing an instance of 'std::runtime_error'
-  what():    what():  [Rank 23] NCCL watchdog thread terminated with exception: [Rank 23] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800092 milliseconds before timing out.[Rank 18] NCCL watchdog thread terminated with exception: [Rank 18] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800082 milliseconds before timing out.
-
-  what():  [Rank 16] NCCL watchdog thread terminated with exception: [Rank 16] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800156 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_errorterminate called after throwing an instance of ''
-std::runtime_error'
-  what():  [Rank 19] NCCL watchdog thread terminated with exception: [Rank 19] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800317 milliseconds before timing out.
-  what():  [Rank 20] NCCL watchdog thread terminated with exception: [Rank 20] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800392 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 22] NCCL watchdog thread terminated with exception: [Rank 22] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800811 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 22] NCCL watchdog thread terminated with exception: [Rank 22] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800811 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 26] NCCL watchdog thread terminated with exception: [Rank 26] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800875 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 26] NCCL watchdog thread terminated with exception: [Rank 26] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800875 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 27] NCCL watchdog thread terminated with exception: [Rank 27] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800664 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 27] NCCL watchdog thread terminated with exception: [Rank 27] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800664 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 31] NCCL watchdog thread terminated with exception: [Rank 31] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800874 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 31] NCCL watchdog thread terminated with exception: [Rank 31] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800874 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 30] NCCL watchdog thread terminated with exception: [Rank 30] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800534 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 30] NCCL watchdog thread terminated with exception: [Rank 30] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800534 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 24] NCCL watchdog thread terminated with exception: [Rank 24] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800544 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 24] NCCL watchdog thread terminated with exception: [Rank 24] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800544 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 28] NCCL watchdog thread terminated with exception: [Rank 28] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800521 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 28] NCCL watchdog thread terminated with exception: [Rank 28] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800521 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 25] NCCL watchdog thread terminated with exception: [Rank 25] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800675 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 25] NCCL watchdog thread terminated with exception: [Rank 25] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800675 milliseconds before timing out.
-[2024-02-08 13:01:14,180] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1924129 closing signal SIGTERM
-[2024-02-08 13:01:14,180] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1924133 closing signal SIGTERM
-[2024-02-08 13:01:14,180] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1924134 closing signal SIGTERM
-[2024-02-08 13:01:14,180] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1924135 closing signal SIGTERM
-[2024-02-08 13:01:14,180] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1924136 closing signal SIGTERM
-[2024-02-08 13:01:14,180] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1924137 closing signal SIGTERM
-[2024-02-08 13:01:14,180] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1924138 closing signal SIGTERM
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 12] NCCL watchdog thread terminated with exception: [Rank 12] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800078 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 12] NCCL watchdog thread terminated with exception: [Rank 12] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800078 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 10] NCCL watchdog thread terminated with exception: [Rank 10] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800103 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 10] NCCL watchdog thread terminated with exception: [Rank 10] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800103 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 13] NCCL watchdog thread terminated with exception: [Rank 13] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800989 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 13] NCCL watchdog thread terminated with exception: [Rank 13] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800989 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 15] NCCL watchdog thread terminated with exception: [Rank 15] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800062 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 15] NCCL watchdog thread terminated with exception: [Rank 15] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800062 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 14] NCCL watchdog thread terminated with exception: [Rank 14] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800767 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 14] NCCL watchdog thread terminated with exception: [Rank 14] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800767 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 11] NCCL watchdog thread terminated with exception: [Rank 11] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800036 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 11] NCCL watchdog thread terminated with exception: [Rank 11] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800036 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 9] NCCL watchdog thread terminated with exception: [Rank 9] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800135 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 9] NCCL watchdog thread terminated with exception: [Rank 9] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800135 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 8] NCCL watchdog thread terminated with exception: [Rank 8] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800992 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 8] NCCL watchdog thread terminated with exception: [Rank 8] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800992 milliseconds before timing out.
-[2024-02-08 13:01:19,123] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1741964 closing signal SIGTERM
-[2024-02-08 13:01:19,123] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1741965 closing signal SIGTERM
-[2024-02-08 13:01:19,123] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1741966 closing signal SIGTERM
-[2024-02-08 13:01:19,123] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1741967 closing signal SIGTERM
-[2024-02-08 13:01:19,123] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1741968 closing signal SIGTERM
-[2024-02-08 13:01:19,123] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1741970 closing signal SIGTERM
-[2024-02-08 13:01:19,123] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 1741971 closing signal SIGTERM
-[E ProcessGroupNCCL.cpp:474] [Rank 0] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800927 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 3] NCCL watchdog thread terminated with exception: [Rank 3] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800201 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 3] NCCL watchdog thread terminated with exception: [Rank 3] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800201 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 1] NCCL watchdog thread terminated with exception: [Rank 1] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800323 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 1] NCCL watchdog thread terminated with exception: [Rank 1] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800323 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 4] NCCL watchdog thread terminated with exception: [Rank 4] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800295 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 4] NCCL watchdog thread terminated with exception: [Rank 4] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800295 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 5] NCCL watchdog thread terminated with exception: [Rank 5] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800371 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 5] NCCL watchdog thread terminated with exception: [Rank 5] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800371 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 7] NCCL watchdog thread terminated with exception: [Rank 7] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800273 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 7] NCCL watchdog thread terminated with exception: [Rank 7] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800273 milliseconds before timing out.
-[E ProcessGroupNCCL.cpp:488] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
-[E ProcessGroupNCCL.cpp:494] To avoid data inconsistency, we are taking the entire process down.
-[E ProcessGroupNCCL.cpp:915] [Rank 0] NCCL watchdog thread terminated with exception: [Rank 0] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800927 milliseconds before timing out.
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  [Rank 0] NCCL watchdog thread terminated with exception: [Rank 0] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=23, OpType=BROADCAST, NumelIn=83886080, NumelOut=83886080, Timeout(ms)=1800000) ran for 1800927 milliseconds before timing out.
-[2024-02-08 13:01:24,025] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 2969648 closing signal SIGTERM
-[2024-02-08 13:01:24,025] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 2969649 closing signal SIGTERM
-[2024-02-08 13:01:24,025] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 2969651 closing signal SIGTERM
-[2024-02-08 13:01:24,025] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 2969652 closing signal SIGTERM
-[2024-02-08 13:01:24,025] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 2969653 closing signal SIGTERM
-[2024-02-08 13:01:24,025] torch.distributed.elastic.multiprocessing.api: [WARNING] Sending process 2969655 closing signal SIGTERM
-[2024-02-08 13:01:33,574] torch.distributed.elastic.multiprocessing.api: [ERROR] failed (exitcode: 1) local_rank: 1 (pid: 1924131) of binary: /users/gmongaras/miniconda3/bin/python
-[2024-02-08 13:01:33,579] torch.distributed.elastic.multiprocessing.errors: [INFO] ('local_rank %s FAILED with no error file. Decorate your entrypoint fn with @record for traceback info. See: https://pytorch.org/docs/stable/elastic/errors.html', 17)
-Traceback (most recent call last):
-  File "/home/gmongaras/miniconda3/bin/torchrun", line 8, in <module>
-    sys.exit(main())
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 346, in wrapper
-    return f(*args, **kwargs)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/run.py", line 806, in main
-    run(args)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/run.py", line 797, in run
-    elastic_launch(
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 134, in __call__
-    return launch_agent(self._config, self._entrypoint, list(args))
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 264, in launch_agent
-    raise ChildFailedError(
-torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
-============================================================
-GPT_Trainer/trainer.py FAILED
-------------------------------------------------------------
-Failures:
-  <NO_OTHER_FAILURES>
-------------------------------------------------------------
-Root Cause (first observed failure):
-[0]:
-  time      : 2024-02-08_13:01:14
-  host      : bcm-dgxa100-0016.cm.cluster
-  rank      : 17 (local_rank: 1)
-  exitcode  : 1 (pid: 1924131)
-  error_file: <N/A>
-  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
-============================================================
-srun: error: bcm-dgxa100-0016: task 2: Exited with exit code 1
-[2024-02-08 13:01:37,598] torch.distributed.elastic.multiprocessing.api: [ERROR] failed (exitcode: 1) local_rank: 5 (pid: 1741969) of binary: /users/gmongaras/miniconda3/bin/python
-[2024-02-08 13:01:37,602] torch.distributed.elastic.multiprocessing.errors: [INFO] ('local_rank %s FAILED with no error file. Decorate your entrypoint fn with @record for traceback info. See: https://pytorch.org/docs/stable/elastic/errors.html', 29)
-Traceback (most recent call last):
-  File "/home/gmongaras/miniconda3/bin/torchrun", line 8, in <module>
-    sys.exit(main())
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 346, in wrapper
-    return f(*args, **kwargs)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/run.py", line 806, in main
-    run(args)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/run.py", line 797, in run
-    elastic_launch(
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 134, in __call__
-    return launch_agent(self._config, self._entrypoint, list(args))
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 264, in launch_agent
-    raise ChildFailedError(
-torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
-============================================================
-GPT_Trainer/trainer.py FAILED
-------------------------------------------------------------
-Failures:
-  <NO_OTHER_FAILURES>
-------------------------------------------------------------
-Root Cause (first observed failure):
-[0]:
-  time      : 2024-02-08_13:01:19
-  host      : bcm-dgxa100-0017.cm.cluster
-  rank      : 29 (local_rank: 5)
-  exitcode  : 1 (pid: 1741969)
-  error_file: <N/A>
-  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
-============================================================
-[2024-02-08 13:01:37,624] torch.distributed.elastic.multiprocessing.api: [ERROR] failed (exitcode: 1) local_rank: 2 (pid: 2969650) of binary: /users/gmongaras/miniconda3/bin/python
-[2024-02-08 13:01:37,628] torch.distributed.elastic.multiprocessing.errors: [INFO] ('local_rank %s FAILED with no error file. Decorate your entrypoint fn with @record for traceback info. See: https://pytorch.org/docs/stable/elastic/errors.html', 2)
-Traceback (most recent call last):
-  File "/home/gmongaras/miniconda3/bin/torchrun", line 8, in <module>
-    sys.exit(main())
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 346, in wrapper
-    return f(*args, **kwargs)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/run.py", line 806, in main
-    run(args)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/run.py", line 797, in run
-    elastic_launch(
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 134, in __call__
-    return launch_agent(self._config, self._entrypoint, list(args))
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 264, in launch_agent
-    raise ChildFailedError(
-torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
-============================================================
-GPT_Trainer/trainer.py FAILED
-------------------------------------------------------------
-Failures:
-[1]:
-  time      : 2024-02-08_13:01:24
-  host      : bcm-dgxa100-0014.cm.cluster
-  rank      : 6 (local_rank: 6)
-  exitcode  : 1 (pid: 2969654)
-  error_file: <N/A>
-  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
-------------------------------------------------------------
-Root Cause (first observed failure):
-[0]:
-  time      : 2024-02-08_13:01:24
-  host      : bcm-dgxa100-0014.cm.cluster
-  rank      : 2 (local_rank: 2)
-  exitcode  : 1 (pid: 2969650)
-  error_file: <N/A>
-  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
-============================================================
-[2024-02-08 13:01:37,789] torch.distributed.elastic.rendezvous.dynamic_rendezvous: [WARNING] The node 'bcm-dgxa100-0015.cm.cluster_2546025_0' has failed to send a keep-alive heartbeat to the rendezvous '23130' due to an error of type RendezvousConnectionError.
-[2024-02-08 13:01:39,162] torch.distributed.elastic.multiprocessing.api: [ERROR] failed (exitcode: -6) local_rank: 0 (pid: 2546110) of binary: /users/gmongaras/miniconda3/bin/python
-[2024-02-08 13:01:39,166] torch.distributed.elastic.rendezvous.dynamic_rendezvous: [WARNING] The node 'bcm-dgxa100-0015.cm.cluster_2546025_0' has failed to shutdown the rendezvous '23130' due to an error of type RendezvousConnectionError.
-[2024-02-08 13:01:39,166] torch.distributed.elastic.multiprocessing.errors: [INFO] ('local_rank %s FAILED with no error file. Decorate your entrypoint fn with @record for traceback info. See: https://pytorch.org/docs/stable/elastic/errors.html', 8)
-Traceback (most recent call last):
-  File "/home/gmongaras/miniconda3/bin/torchrun", line 8, in <module>
-    sys.exit(main())
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 346, in wrapper
-    return f(*args, **kwargs)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/run.py", line 806, in main
-    run(args)
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/run.py", line 797, in run
-    elastic_launch(
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 134, in __call__
-    return launch_agent(self._config, self._entrypoint, list(args))
-  File "/users/gmongaras/miniconda3/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 264, in launch_agent
-    raise ChildFailedError(
-torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
-========================================================
-GPT_Trainer/trainer.py FAILED
---------------------------------------------------------
-Failures:
-[1]:
-  time      : 2024-02-08_13:01:39
-  host      : bcm-dgxa100-0015.cm.cluster
-  rank      : 9 (local_rank: 1)
-  exitcode  : -6 (pid: 2546111)
-  error_file: <N/A>
-  traceback : Signal 6 (SIGABRT) received by PID 2546111
-[2]:
-  time      : 2024-02-08_13:01:39
-  host      : bcm-dgxa100-0015.cm.cluster
-  rank      : 10 (local_rank: 2)
-  exitcode  : -6 (pid: 2546112)
-  error_file: <N/A>
-  traceback : Signal 6 (SIGABRT) received by PID 2546112
-[3]:
-  time      : 2024-02-08_13:01:39
-  host      : bcm-dgxa100-0015.cm.cluster
-  rank      : 11 (local_rank: 3)
-  exitcode  : -6 (pid: 2546113)
-  error_file: <N/A>
-  traceback : Signal 6 (SIGABRT) received by PID 2546113
-[4]:
-  time      : 2024-02-08_13:01:39
-  host      : bcm-dgxa100-0015.cm.cluster
-  rank      : 12 (local_rank: 4)
-  exitcode  : -6 (pid: 2546114)
-  error_file: <N/A>
-  traceback : Signal 6 (SIGABRT) received by PID 2546114
-[5]:
-  time      : 2024-02-08_13:01:39
-  host      : bcm-dgxa100-0015.cm.cluster
-  rank      : 13 (local_rank: 5)
-  exitcode  : -6 (pid: 2546115)
-  error_file: <N/A>
-  traceback : Signal 6 (SIGABRT) received by PID 2546115
-[6]:
-  time      : 2024-02-08_13:01:39
-  host      : bcm-dgxa100-0015.cm.cluster
-  rank      : 14 (local_rank: 6)
-  exitcode  : -6 (pid: 2546116)
-  error_file: <N/A>
-  traceback : Signal 6 (SIGABRT) received by PID 2546116
-[7]:
-  time      : 2024-02-08_13:01:39
-  host      : bcm-dgxa100-0015.cm.cluster
-  rank      : 15 (local_rank: 7)
-  exitcode  : -6 (pid: 2546117)
-  error_file: <N/A>
-  traceback : Signal 6 (SIGABRT) received by PID 2546117
---------------------------------------------------------
-Root Cause (first observed failure):
-[0]:
-  time      : 2024-02-08_13:01:39
-  host      : bcm-dgxa100-0015.cm.cluster
-  rank      : 8 (local_rank: 0)
-  exitcode  : -6 (pid: 2546110)
-  error_file: <N/A>
-  traceback : Signal 6 (SIGABRT) received by PID 2546110
-========================================================
-srun: error: bcm-dgxa100-0017: task 3: Exited with exit code 1
-srun: error: bcm-dgxa100-0014: task 0: Exited with exit code 1
-srun: error: bcm-dgxa100-0015: task 1: Exited with exit code 1

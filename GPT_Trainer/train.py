@@ -23,14 +23,14 @@ def main():
     attention_type="cos" # cos or soft
     clipping_value=None
     weight_decay=0.01
-    model_save_path = "models/del"
+    model_save_path = "models_GPT/del"
     # model_save_path = "models/del"
     num_save_steps = 10_000
     keep_dataset_in_mem = False
     
     # Load in a checkpoint
     load_checkpoint = False
-    checkpoint_path = "models/del/"
+    checkpoint_path = "models_GPT/del/"
     
     trainer = Trainer(
         batch_size=batch_size,

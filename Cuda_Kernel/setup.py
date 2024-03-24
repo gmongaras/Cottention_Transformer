@@ -2,13 +2,16 @@ from setuptools import setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 setup(
-    name='FastAttention',
+    name='FastAttention2',
     ext_modules=[
-        CUDAExtension('FastAttention.forward', [
-            'forward.cu',
-        ]),
-        CUDAExtension('FastAttention.backward', [
-            'backward_combined.cu',
+        # CUDAExtension('FastAttention.forward', [
+        #     'forwardv2.cu',
+        # ]),
+        # CUDAExtension('FastAttention.backward', [
+        #     'backwardv2_comb.cu',
+        # ]),
+        CUDAExtension('FastAttention2.kernel', [
+            'combined_kernel.cu',
         ]),
     ],
     cmdclass={

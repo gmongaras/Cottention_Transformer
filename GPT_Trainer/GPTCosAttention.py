@@ -19,6 +19,23 @@ from Custom_Kernel import CustomAttention
 
 
 
+class Multiply(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, Q, K, V):
+        ctx.Q = Q
+        ctx.K = K
+        ctx.V = V
+        return Q @ (K.transpose(-1, -2) @ V)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        Q, K, V = ctx.Q, ctx.K, ctx.V
+        grad_output = grad_output.to(Q.dtype)
+        grad_Q = grad_output @ (V.transpose(-1, -2) @ K)
+        grad_K = V @ (grad_output.transpose(-1, -2) @ Q)
+        grad_V = Q @ (grad_output.transpose(-1, -2) @ K)
+        return grad_Q, grad_K, grad_V
+
 
 class GPTCosAttention(nn.Module):
     def __init__(self, config):
@@ -165,10 +182,14 @@ class GPTCosAttention(nn.Module):
         
         
         # if query.shape[-2] > self.head_dim:
-        if False:
+        if True:
             #### Custom Attention ####
+            # attn_output = query @ (key.transpose(-1, -2) @ value)
             attn_output = CustomAttention.apply(query, key, value)
+            # attn_output = Multiply.apply(query, key, value)
             #### Custom Attention ####
+            
+            # attn_output = query @ (key.transpose(-1, -2) @ value)
         else:
             #### Normal Attention ####
             attn_weights = torch.matmul(query, key.transpose(-1, -2))

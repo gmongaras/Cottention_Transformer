@@ -161,7 +161,7 @@ class Trainer():
             self.pad_token = torch.tensor([self.tokenizer.pad_token_id])
             
             # Set max sequence length
-            self.tokenizer.model_max_length = 512
+            self.tokenizer.model_max_length = 1024
             
             # GPT-J Model. We are training it from scratch
             self.model = transformers.GPTJForCausalLM(config=transformers.GPTJConfig.from_dict({
@@ -177,9 +177,9 @@ class Trainer():
                 "initializer_range": 0.02,
                 "layer_norm_epsilon": 1e-05,
                 "model_type": "gptj",
-                "n_embd": 2048, # 4096,
+                "n_embd": 1024, # 4096,
                 "n_head": 16,
-                "n_inner": None,
+                "n_inner": 4*768, # 16384,
                 "n_layer": 20, #28,
                 "n_positions": self.tokenizer.model_max_length,
                 "resid_pdrop": 0.0,
@@ -306,6 +306,7 @@ class Trainer():
     def train_model(self):
         self.train_model_("Traxap/Pile_Tokenized", self.num_steps, self.step_ckpt)
         # self.train_model_("gmongaras/BERT_Base_Cased_512_Dataset_Mapped", self.num_steps, self.step_ckpt)
+        # self.train_model_("gmongaras/dummy_text_dataset", self.num_steps, self.step_ckpt)
         
         
         
@@ -315,6 +316,7 @@ class Trainer():
         # Cache dirs
         cache_path = "GPT_Trainer/data_cache/dataset_mapped"
         # cache_path = "BERT_Trainer/data_cache/dataset_mapped"
+        # cache_path = "GPT_Trainer/data_cache/dataset_mapped"
         
         # Load in datasets
         if not os.path.exists(cache_path):
@@ -323,6 +325,16 @@ class Trainer():
         
         # Load dummy data
         # tokenized_dataset = datasets.load_from_disk("BERT_Trainer/data_cache/dummy_dataset")
+        
+        
+        if dataset == "gmongaras/dummy_text_dataset":
+            def tokenize_function(examples):
+                return self.tokenizer(examples["text"], truncation=True, max_length=self.tokenizer.model_max_length)
+            self.tokenized_dataset = self.tokenized_dataset.map(
+                tokenize_function,
+                remove_columns=["text"],
+                cache_file_name="dummy_tokenized_dataset",
+            )
         
         # Convert data to torch
         self.tokenized_dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
@@ -388,7 +400,7 @@ class Trainer():
             input_ids = batch["input_ids"]
             attention_mask = batch["attention_mask"]
             labels = batch["labels"]
-            
+        
             with torch.autocast(device_type='cuda', dtype=torch.bfloat16) if self.use_amp else nullcontext():
                 # Get model predictions
                 # outputs = self.model(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels, next_sentence_label=sentence_pairs_labels)
@@ -400,6 +412,16 @@ class Trainer():
                 
                 # Loss
                 loss = loss_fct(outputs.view(-1, self.model_ref.config.vocab_size), labels.view(-1).to(outputs.device))
+                
+                
+            # # Clear the graph
+            # del loss
+            # del outputs
+            # del input_ids
+            # del attention_mask
+            # # Zero grad
+            # self.optimizer.zero_grad()
+            # continue
                 
             # Backpropagate loss
             if self.use_amp:
