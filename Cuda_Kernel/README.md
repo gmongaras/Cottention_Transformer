@@ -1,1 +1,1 @@
-pip uninstall FastAttention -y;python setup.py install
+cd Cuda_Kernel;python -m pip uninstall FastAttention -y;python setup.py install
