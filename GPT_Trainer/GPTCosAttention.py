@@ -185,9 +185,15 @@ class GPTCosAttention(nn.Module):
         if True:
             #### Custom Attention ####
             # attn_output = query @ (key.transpose(-1, -2) @ value)
+            
+            # Turn off autocast
             attn_output = CustomAttention.apply(query, key, value)
             # attn_output = Multiply.apply(query, key, value)
             #### Custom Attention ####
+            
+            # # Mask again
+            # attention_mask[:, :, :, -1] = False
+            # attn_output = attn_output.masked_fill(causal_mask.unsqueeze(-1), 0)
             
             # attn_output = query @ (key.transpose(-1, -2) @ value)
         else:
@@ -215,10 +221,8 @@ class GPTCosAttention(nn.Module):
             if head_mask is not None:
                 attn_weights = attn_weights * head_mask
 
-            attn_output = torch.matmul(attn_weights, value)
+            attn_output2 = torch.matmul(attn_weights, value)
             #### Normal Attention ####
-            
-        
 
         return attn_output, attn_output
 

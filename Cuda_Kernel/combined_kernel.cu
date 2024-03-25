@@ -94,7 +94,82 @@ __device__ at::BFloat16 __shfl_down_sync_(unsigned mask, at::BFloat16 val, int d
 
 
 template<typename T, int warp_size>
-__global__ void kernel(
+__global__ void kernel_mod_2(
+    const T* Q, const T* K, const T* V,
+    T* output,
+    int N, int H, int S, const int D,
+    bool reversed) {
+    
+    int n = blockIdx.x; // Batch index
+    int h = blockIdx.y; // Head index
+    int d_v = blockIdx.z; // Index within the d_V dimension
+    int d_K_block = threadIdx.x; // Thread index within the d_K dimension
+
+    // Block size for each thread in the warp
+    int block_size = (int)D/warp_size;
+    // Starting index of the d_K dimension
+    int d_k_start = d_K_block * block_size;
+    // Ending index of the d_K dimension
+    int d_k_end = min(d_k_start + block_size, D);
+
+
+
+    // Allocate shared memory. This will store values for V[*, d_v] * K[*, d_k] for all d_k
+    // My man!
+    // https://github.com/pytorch/extension-cpp/issues/59#issuecomment-626189915
+    extern __shared__ __align__(sizeof(T)) unsigned char shared_memory_uchar[];T *CumsumArr = reinterpret_cast<T *>(shared_memory_uchar);
+    memset(CumsumArr, 0, D*sizeof(T));
+
+    // Iterate over the entire sequence. Reversed is a flag to indicate if we are going in reverse
+    for (int s_ = 0; s_ < S; s_++) {
+        int s = s_;
+        if (reversed) {
+            s = S - s_ - 1;
+        }
+
+        // Initialize the sum over the dimension to be zero
+        T sum = 0;
+
+        // Load in the value of V for this part of the sequence
+        T V_cache = V[((n * H + h) * S + s) * D + d_v];
+
+        // Iterate over the entire block of the dimension that this thread is working on
+        #pragma unroll
+        for (int d_k = d_k_start; d_k < d_k_end; d_k+=2) {
+            // Compute the sum and store it in the cumsum array
+            // V[s, d_v] * K[s, d_k]
+            CumsumArr[d_k] += V_cache * K[((n * H + h) * S + s) * D + d_k];
+            CumsumArr[d_k+1] += V_cache * K[((n * H + h) * S + s) * D + d_k+1];
+
+            // Multiply the cumsum value with the query and add it to the sum
+            // Q[s, d_k] * (V[s, d_v] * Q[s, d_k])
+            sum += CumsumArr[d_k] * Q[((n * H + h) * S + s) * D + d_k] +
+                CumsumArr[d_k+1] * Q[((n * H + h) * S + s) * D + d_k+1];
+        }
+
+        __syncthreads();
+
+        // Reduce the sum across the block. Easy since we only have 32 threads in the block which is a single warp
+        #pragma unroll
+        for (int offset = (int)warp_size/2; offset > 0; offset /= 2) {
+            sum += __shfl_down_sync_(0xFFFFFFFF, sum, offset);
+        }
+
+        __syncthreads();
+
+        // Store the sum in the output
+        if (threadIdx.x == 0) {
+            output[((n * H + h) * S + s) * D + d_v] = sum;
+        }
+
+        __syncthreads();
+    }
+
+}
+
+
+template<typename T, int warp_size>
+__global__ void kernel_mod_4(
     const T* Q, const T* K, const T* V,
     T* output,
     int N, int H, int S, const int D,
@@ -165,9 +240,14 @@ __global__ void kernel(
         if (threadIdx.x == 0) {
             output[((n * H + h) * S + s) * D + d_v] = sum;
         }
+
+        __syncthreads();
     }
 
 }
+
+
+
 
 // Wrapper function to orchestrate the computation
 template<typename T>
@@ -182,7 +262,15 @@ void kernel_call(
     dim3 grid(N, H, D);
     dim3 block(warp_size);
     // Shared memory is the cumsum
-    kernel<T, warp_size><<<grid, block, D*sizeof(T), stream>>>(Q, K, V, output, N, H, S, D, reversed);
+    int shared_memory_size = D*sizeof(T);
+
+    // Call kernel depending on if the kernel is divisible by 32*2 or 32*4
+    // kernel<T, warp_size><<<grid, block, shared_memory_size, stream>>>(Q, K, V, output, N, H, S, D, reversed);
+    if (D < 32*4) {
+        kernel_mod_2<T, warp_size><<<grid, block, shared_memory_size, stream>>>(Q, K, V, output, N, H, S, D, reversed);
+    } else {
+        kernel_mod_4<T, warp_size><<<grid, block, shared_memory_size, stream>>>(Q, K, V, output, N, H, S, D, reversed);
+    }
 }
 
 
@@ -259,6 +347,11 @@ torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K, torch::Tensor& V, con
     int S = Q.size(2);
     int D = Q.size(3);
 
+    // D must be divisible by 32 and 32*2
+    TORCH_CHECK(D % 32 == 0, "D must be divisible by 32");
+    TORCH_CHECK(D % 32*2 == 0, "D must be divisible by 32*2");
+    TORCH_CHECK(D >= 32*2, "D must be greater than or equal to 32*2");
+
     // Get the data type, could be auto casted
     at::ScalarType autocast_dtype;
     if (std::is_same<dtype_, float>::value) {
@@ -308,7 +401,8 @@ torch::Tensor forward_(torch::Tensor& Q, torch::Tensor& K, torch::Tensor& V, con
     }));
 
     // Device syc for debugging
-    // cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();    // Nan to num
+    // return torch::nan_to_num(output, /* nan = */ 0.0, /* posinf = */ 0.0, /* neginf = */ 0.0);
 
     return output;
 }

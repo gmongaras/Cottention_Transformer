@@ -135,7 +135,6 @@ class CustomAttention(torch.autograd.Function):
             grad_V = FastAttention.kernel.bfloat16(K, Q, grad_output, 1, inplace, True)
         else:
             raise ValueError("Only float32, float64, float16, and bfloat16 are supported")
-        
 
 
         # Return the gradients in the order of the inputs to forward
