@@ -11,7 +11,7 @@ setup(
         #     'backwardv2_comb.cu',
         # ]),
         CUDAExtension('FastAttention2.kernel', [
-            'combined_kernel.cu',
+            'combined_kernel_general.cu',
         ]),
     ],
     cmdclass={

@@ -20,13 +20,14 @@ def main():
     wandb_name="del"
     log_steps=10
     use_amp=True
-    attention_type="cos" # cos or soft
+    attention_type="cos" # cos, or soft
     clipping_value=None
     weight_decay=0.01
     model_save_path = "models_GPT/del"
     # model_save_path = "models/del"
     num_save_steps = 10_000
     keep_dataset_in_mem = False
+    model_max_length = 1024
     
     # Load in a checkpoint
     load_checkpoint = False
@@ -49,6 +50,7 @@ def main():
         keep_dataset_in_mem=keep_dataset_in_mem,
         load_checkpoint=load_checkpoint,
         checkpoint_path=checkpoint_path,
+        model_max_length=model_max_length
     )
     
     # Train model

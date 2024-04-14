@@ -21,9 +21,11 @@ import torch.distributed as dist
 try:
     from GPT_Trainer.multi_gpu_helpers import is_main_process
     from GPT_Trainer.GPTCosAttention import GPTCosAttention
+    # from GPT_Trainer.LinformerAttention import LinformerAttention
 except ModuleNotFoundError:
     from multi_gpu_helpers import is_main_process
     from GPTCosAttention import GPTCosAttention
+    # from LinformerAttention import LinformerAttention
 
 
 
@@ -80,9 +82,20 @@ def get_scheduler(optimizer, warmup_steps, total_steps):
     # Define the lambda function for the learning rate schedule
     # this value 
     lr_lambda = lambda step: (
+        # Warmup
         step/warmup_steps if step < warmup_steps
+        # Decrease from 1 to 0 from warmup_steps to total_steps
         else (1.0 - (step - warmup_steps) / (total_steps - warmup_steps))
     )
+    
+    # # Instead we can decrease from 1 to a percentage of the original learning rate
+    # per = 0.1
+    # lr_lambda = lambda step: (
+    #     # Warmup
+    #     step/warmup_steps if step < warmup_steps
+    #     # Decrease from 1 to a percentage of the original learning rate
+    #     else (1.0 - (1-per)*(step - warmup_steps) / (total_steps - warmup_steps))
+    # )
 
     # Create the scheduler
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
@@ -111,6 +124,7 @@ class Trainer():
             checkpoint_path=None,
             finetune=False,
             finetune_task=None,
+            model_max_length=2048,
         ):
         self.learning_rate = learning_rate
         self.warmup_steps = warmup_steps
@@ -161,7 +175,7 @@ class Trainer():
             self.pad_token = torch.tensor([self.tokenizer.pad_token_id])
             
             # Set max sequence length
-            self.tokenizer.model_max_length = 1024
+            self.tokenizer.model_max_length = model_max_length
             
             # GPT-J Model. We are training it from scratch
             self.model = transformers.GPTJForCausalLM(config=transformers.GPTJConfig.from_dict({
@@ -212,6 +226,10 @@ class Trainer():
                     old = layer.attn
                     layer.attn = GPTCosAttention(self.model.config).to(layer.attn.q_proj.weight.device)
                     del old
+            elif attention_type == "soft":
+                pass
+            else:
+                raise ValueError("Attention type must be 'soft' or 'cos'")
                     
                     
                     

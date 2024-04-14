@@ -3,7 +3,7 @@ from Custom_Kernel import CustomAttention
 
 N = 32
 S = 1023
-D = 64
+D = 32
 
 # Method 1
 def method1(Q, K, V, mask):
@@ -134,7 +134,7 @@ def method6(Q, K, V, mask):
 
 # Time the methods
 import timeit
-Q, K, V = torch.rand(N, S, D).cuda(), torch.rand(N, S, D).cuda(), torch.rand(N, S, D).cuda()
+Q, K, V = torch.rand(N, S, D*2).cuda(), torch.rand(N, S, D*2).cuda(), torch.rand(N, S, D).cuda()
 mask = torch.tril(torch.ones(S, S)).view(1, S, S).cuda()
 # print(timeit.timeit(lambda: method1(Q, K, V, mask), number=1000))
 # print(timeit.timeit(lambda: method2(Q, K, V, mask), number=1000))

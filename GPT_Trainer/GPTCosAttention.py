@@ -73,6 +73,18 @@ class GPTCosAttention(nn.Module):
         self.embed_positions = create_sinusoidal_positions(max_positions, pos_embd_dim)
         
         
+        # Fast inference
+        try:
+            if config.fast_inference:
+                self.fast_inference = True
+                self.past_KV = torch.zeros(1, self.num_attention_heads, self.head_dim, self.head_dim, dtype=torch.float64).to(self.q_proj.weight.device)
+                self.cur_s = 1
+            else:
+                self.fast_inference = False
+        except AttributeError:
+            self.fast_inference = False
+        
+        
         # Learnable constant for each head for norm
         self.norm_const = nn.Parameter(0.5*torch.ones(1, self.num_attention_heads, 1, 1, dtype=self.q_proj.weight.dtype)).to(self.q_proj.weight.device)
 
@@ -161,6 +173,56 @@ class GPTCosAttention(nn.Module):
         # # Keep the attention weights computation in fp32 to avoid overflow issues
         # query = query.to(torch.float32)
         # key = key.to(torch.float32)
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        # # Normalize query, and keys
+        # query = torch.nn.functional.normalize(query, dim=-1, p=2)
+        # key = torch.nn.functional.normalize(key, dim=-1, p=2)
+        
+        # attention_mask = (attention_mask == 0)
+        
+        
+        # attn_output = torch.zeros(query.shape[0], query.shape[1], query_length, self.head_dim).to(query.device)
+            
+        # hidden_state = torch.zeros(query.shape[0], query.shape[1], self.head_dim, self.head_dim).to(query.device)
+        # hidden_state2 = torch.zeros(query.shape[0], query.shape[1], self.head_dim).to(query.device)
+        # for s in range(0, query_length):
+        #     # Update hidden state with K^T * V
+        #     hidden_state = hidden_state + value[:, :, s].unsqueeze(-1) * key[:, :, s].unsqueeze(-2)
+            
+        #     # Update hiden state 2 with values
+        #     hidden_state2 = hidden_state2 + value[:, :, s]
+            
+        #     # Compute attention weights
+        #     attn_output[:, :, s] = ((hidden_state/hidden_state2.unsqueeze(-1)) * query[:, :, s].unsqueeze(-2)).sum(-1)
+        
+        
+        # return attn_output, attn_output
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 
         
         # Normalize query, and keys
@@ -170,7 +232,10 @@ class GPTCosAttention(nn.Module):
         attention_mask = (attention_mask == 0)
         
         # Scale the values by the length of the sequence
-        value = value / (((causal_mask * attention_mask)).sum(-1, keepdims=True)**self.norm_const.sigmoid()).clamp(min=1)
+        if self.fast_inference:
+            value = value / ((self.cur_s + torch.arange(0, query.shape[2], device=query.device)).reshape(1, 1, -1, 1)**self.norm_const.sigmoid()).clamp(min=1)
+        else:
+            value = value / (((causal_mask * attention_mask)).sum(-1, keepdims=True)**self.norm_const.sigmoid()).clamp(min=1)
         
         
         # Mask query, key, and value layers
@@ -178,7 +243,31 @@ class GPTCosAttention(nn.Module):
             query = query * attention_mask.transpose(-1, -2)
             key = key * attention_mask.transpose(-1, -2)
             value = value * attention_mask.transpose(-1, -2)
-        
+            
+            
+            
+        # Fast inference mode
+        if self.fast_inference:
+            # Output or "observed" hidden states
+            attn_output = torch.zeros_like(query, dtype=query.dtype, device=query.device)
+            
+            # Make sure the past KV is on the same device as the query
+            if self.past_KV.device != query.device:
+                self.past_KV = self.past_KV.to(query.device)
+            
+            # Iterate over the entire sequence dimension, updating the past KV and getting the output
+            for s in range(0, query_length):
+                # Update hidden state
+                self.past_KV = self.past_KV + (value[:, :, s].unsqueeze(-1) * key[:, :, s].unsqueeze(-2)).to(torch.float64)
+                
+                # Get output
+                attn_output[:, :, s] = (query[:, :, s].unsqueeze(-2) * self.past_KV).sum(-1)
+                
+                self.cur_s += 1
+                
+                
+            return attn_output, attn_output
+    
         
         
         # if query.shape[-2] > self.head_dim:
@@ -221,8 +310,110 @@ class GPTCosAttention(nn.Module):
             if head_mask is not None:
                 attn_weights = attn_weights * head_mask
 
+            attn_output = torch.matmul(attn_weights, value)
+            #### Normal Attention ####
+
+        # O = ((value.unsqueeze(-1) * key.unsqueeze(-2)).cumsum(-2) * query.unsqueeze(-2)).sum(-1)
+        # M = (value.unsqueeze(-1) * key.unsqueeze(-2)).cumsum(-2)
+        # first = (value.unsqueeze(-1) * key.unsqueeze(-2))
+
+        return attn_output, attn_output
+    
+    
+    
+    
+    def _cos_attn2(
+        self,
+        query,
+        key,
+        value,
+        attention_mask=None,
+        head_mask=None,
+    ):
+        # compute causal mask from causal mask buffer
+        query_length, key_length = query.size(-2), key.size(-2)
+        causal_mask = self.bias[:, :, key_length - query_length : key_length, :key_length]
+
+        # # Keep the attention weights computation in fp32 to avoid overflow issues
+        # query = query.to(torch.float32)
+        # key = key.to(torch.float32)
+        
+        # Mask query, key, and value layers
+        if attention_mask is not None:
+            query = query * attention_mask.transpose(-1, -2)
+            key = key * attention_mask.transpose(-1, -2)
+            value = value * attention_mask.transpose(-1, -2)
+        
+        
+        # Pass through 
+        from flash_attn import flash_attn_func
+        attn_output = flash_attn_func(query.to(torch.bfloat16), key.to(torch.bfloat16), value.to(torch.bfloat16), causal=True)
+        
+        return attn_output, attn_output
+
+        
+        # Normalize query, and keys
+        query = torch.nn.functional.normalize(query, dim=-1, p=2)
+        key = torch.nn.functional.normalize(key, dim=-1, p=2)
+        
+        attention_mask = (attention_mask == 0)
+        
+        # Scale the values by the length of the sequence
+        value = value / (((causal_mask * attention_mask)).sum(-1, keepdims=True)**self.norm_const.sigmoid()).clamp(min=1)
+        
+        
+        # Mask query, key, and value layers
+        if attention_mask is not None:
+            query = query * attention_mask.transpose(-1, -2)
+            key = key * attention_mask.transpose(-1, -2)
+            value = value * attention_mask.transpose(-1, -2)
+        
+        
+        
+        # if query.shape[-2] > self.head_dim:
+        if True:
+            #### Custom Attention ####
+            # attn_output = query @ (key.transpose(-1, -2) @ value)
+            
+            # Turn off autocast
+            attn_output2 = CustomAttention.apply(query, key, value)
+            # attn_output = Multiply.apply(query, key, value)
+            #### Custom Attention ####
+            
+            # # Mask again
+            # attention_mask[:, :, :, -1] = False
+            # attn_output = attn_output.masked_fill(causal_mask.unsqueeze(-1), 0)
+            
+            # attn_output = query @ (key.transpose(-1, -2) @ value)
+        else:
+            #### Normal Attention ####
+            attn_weights = torch.matmul(query, key.transpose(-1, -2))
+
+            # mask_value = torch.finfo(attn_weights.dtype).min
+            # Need to be a tensor, otherwise we get error: `RuntimeError: expected scalar type float but found double`.
+            # Need to be on the same device, otherwise `RuntimeError: ..., x and y to be on the same device`
+            # mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+            # Mask with zeros for the causal mask
+            attn_weights = torch.where(causal_mask, attn_weights, 0)
+
+            # attn_weights = attn_weights / self.scale_attn
+
+            # if attention_mask is not None:
+            #     # Apply the attention mask
+            #     attn_weights = attn_weights * (attention_mask==0)
+
+            # attn_weights = nn.functional.softmax(attn_weights, dim=-1)
+            attn_weights = attn_weights.to(value.dtype)
+            # attn_weights = self.attn_dropout(attn_weights)
+
+            # Mask heads if we want to
+            if head_mask is not None:
+                attn_weights = attn_weights * head_mask
+
             attn_output2 = torch.matmul(attn_weights, value)
             #### Normal Attention ####
+            
+        attn_output = self.scalar.sigmoid() * attn_output1 + (1-self.scalar.sigmoid()) * attn_output2
 
         return attn_output, attn_output
 
