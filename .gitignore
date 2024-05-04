@@ -11,12 +11,14 @@ BERT_Trainer/*.out
 BERT_Trainer/wikipedia_dataset/
 BERT_Trainer/bookcorpus_dataset/
 BERT_Trainer/glue_dataset/
-Stack/batches/
-Stack/*.sh
+Stack/*
 models/
 imgs/
 GPT_Trainer/data_cache/
 GPT_Trainer/gpt-j-6B/
+GPT_Trainer/*.sh
+Dataset/*.sh
+models*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
