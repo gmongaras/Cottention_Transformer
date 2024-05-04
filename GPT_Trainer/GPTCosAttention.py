@@ -234,6 +234,9 @@ class GPTCosAttention(nn.Module):
         # Scale the values by the length of the sequence
         if self.fast_inference:
             value = value / ((self.cur_s + torch.arange(0, query.shape[2], device=query.device)).reshape(1, 1, -1, 1)**self.norm_const.sigmoid()).clamp(min=1)
+            
+            # Can also just normalize the queries :)
+            # query = query / ((self.cur_s + torch.arange(0, query.shape[2], device=query.device)).reshape(1, 1, -1, 1)**self.norm_const.sigmoid()).clamp(min=1)
         else:
             value = value / (((causal_mask * attention_mask)).sum(-1, keepdims=True)**self.norm_const.sigmoid()).clamp(min=1)
         

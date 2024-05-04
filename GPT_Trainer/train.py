@@ -17,13 +17,13 @@ def main():
     warmup_steps=10_000
     num_steps=1_000_000
     dev="gpu"
-    wandb_name="del"
+    wandb_name="lin"
     log_steps=10
     use_amp=True
-    attention_type="cos" # cos, or soft
+    attention_type="lin" # cos, or soft
     clipping_value=None
     weight_decay=0.01
-    model_save_path = "models_GPT/del"
+    model_save_path = "models_GPT/lin"
     # model_save_path = "models/del"
     num_save_steps = 10_000
     keep_dataset_in_mem = False
@@ -31,7 +31,7 @@ def main():
     
     # Load in a checkpoint
     load_checkpoint = False
-    checkpoint_path = "models_GPT/del/"
+    checkpoint_path = "models_GPT/lin/"
     
     trainer = Trainer(
         batch_size=batch_size,

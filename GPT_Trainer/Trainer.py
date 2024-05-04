@@ -21,11 +21,11 @@ import torch.distributed as dist
 try:
     from GPT_Trainer.multi_gpu_helpers import is_main_process
     from GPT_Trainer.GPTCosAttention import GPTCosAttention
-    # from GPT_Trainer.LinformerAttention import LinformerAttention
+    from GPT_Trainer.GPTLinAttention import GPTLinAttention
 except ModuleNotFoundError:
     from multi_gpu_helpers import is_main_process
     from GPTCosAttention import GPTCosAttention
-    # from LinformerAttention import LinformerAttention
+    from GPTLinAttention import GPTLinAttention
 
 
 
@@ -228,6 +228,11 @@ class Trainer():
                     del old
             elif attention_type == "soft":
                 pass
+            elif attention_type == "lin":
+                for layer in self.model.transformer.h:
+                    old = layer.attn
+                    layer.attn = GPTLinAttention(self.model.config).to(layer.attn.q_proj.weight.device)
+                    del old
             else:
                 raise ValueError("Attention type must be 'soft' or 'cos'")
                     

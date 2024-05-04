@@ -8,6 +8,9 @@ from tqdm import tqdm
 from contextlib import nullcontext
 
 
+import numpy as np
+
+
 try:
     from GPT_Trainer.GPTCosAttention import GPTCosAttention
 except ModuleNotFoundError:
@@ -24,9 +27,11 @@ def infer():
     # model_path = "models/SM AdamW"
     # attention_type = "soft"
     # model_path = "models/redo_lr1e-4_SM"
-    model_path = "models_GPT/Cosine2"
+    model_path = "models_GPT/Cosine"
     attention_type = "cos"
     fast_inference= True
+    get_mem = True
+    device = "cpu"
     
     
     # Load the model
@@ -76,17 +81,17 @@ def infer():
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad) / 1_000_000_000
     print(f"Number of parameters: {num_params:.2f}B")
         
-    model = model.cuda()
+    model = model.to(device)
         
     # Load the tokenizer
-    tokenizer = torch.load(os.path.join(model_path, "tokenizer.pt"))  
+    tokenizer = torch.load(os.path.join(model_path, "tokenizer.pt"))
             
     # inference
-    # sentence = "Tell me about Ravens.\nRavens"
+    sentence = "This is some text that"
     # sentence = r"""He noted that the style was both a "physical workout", the core muscles constantly working to keep the body balanced on the board, and "an exercise in mental focus"[SEP]When he lost focus as he had often done on his yoga mat, his board "penaliz[ed him] for letting [his] mind wander" and, like what the instructor had described as "only about 10% of her students", he fell into the "chilly" water"""
-    sentence = """
-    Cosine attention or cottention is
-    """.strip()
+    # sentence = """
+    # Cosine attention or cottention is
+    # """.strip()
     
     # sentence = """
     # "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language "In mid-19th century, Finnish became an official language, and gradually replaced Swedish as the schooling language[SEP]Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful Anarchism calls for the abolition of the state, which it holds to be unnecessary, undesirable, and harmful"
@@ -95,7 +100,11 @@ def infer():
     
     # Tokenize the sentence
     inputs = tokenizer(sentence, return_tensors="pt")
-    inputs = {k: v.cuda() for k, v in inputs.items()}
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+    
+    if get_mem:
+        mems = []
+    torch.cuda.empty_cache()
     
     # Initial seed
     # Feed the sentences through the model to get the next word
@@ -110,8 +119,8 @@ def infer():
     for i in range(s, 1024):
         # New inputs is just the next word
         inputs = tokenizer(word, return_tensors="pt")
-        inputs["position_ids"] = torch.tensor([[i]]).cuda()
-        inputs = {k: v.cuda() for k, v in inputs.items()}
+        inputs["position_ids"] = torch.tensor([[i]]).to(device)
+        inputs = {k: v.to(device) for k, v in inputs.items()}
         
         # Get the logits
         probs = model(**inputs).logits[0, -1]
@@ -129,8 +138,18 @@ def infer():
         word = tokenizer.decode(next_word.unsqueeze(0))
         print(word, end="")
         
+        
+        # Collect memory usage
+        if get_mem:
+            torch.cuda.empty_cache()
+            mems.append(torch.cuda.memory_allocated())
+        
     # How much memory is being used
     print(torch.cuda.memory_summary())
+    
+    # Save memory usage as numpy array
+    if get_mem:
+        np.save("mem.npy", np.array(mems))
     
     
     
