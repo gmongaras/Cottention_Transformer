@@ -31,7 +31,7 @@ def main():
     # Create Callable
     Pile(process = process, push = push, cache_dir = cache_dir, data_dir = data_dir, tokenizer = tokenizer,
          job_index = job_index, total_jobs = total_jobs, truncation = truncation, max_length = max_length,
-         batch_size = batch_size, num_proc = num_proc, num_shards = num_shards, push_loc = push_loc, token = token)()
+         batch_size = batch_size, num_proc = num_proc, num_shards = num_shards, push_loc = push_loc, token = token)
 
 if __name__ == "__main__":
     main()

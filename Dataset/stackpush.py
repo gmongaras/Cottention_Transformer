@@ -21,7 +21,7 @@ def main():
           skip_langs = skip_langs, tokenizer = tokenizer, 
           truncation = truncation, max_length = max_length, 
           batch_size = batch_size, num_proc = num_proc, 
-          push_loc = push_loc, token = token)()
+          push_loc = push_loc, token = token)
 
 if __name__ == "__main__":
     main()
