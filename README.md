@@ -20,11 +20,42 @@ To install the necessary dependencies and the custom CUDA kernel, follow these s
 
 ## Training
 
-To train the Cottention model, complete the following:
+
+### BERT
+
+To train the BERT Cottention model, complete the following:
 
 1. Create dataset with `BERT_Trainer/create_hf_datasets.py`
 2. Pre-tokenize dataset with `BERT_Trainer/map_hf_dataset.py`
 3. Train model with `BERT_Trainer/train.py`
+
+To run `train.py` with multiple gpus, refer to the provided training script. Here's an example of how to run the training using a job scheduler (e.g., SLURM):
+
+```bash
+#!/bin/sh
+
+#SBATCH -J training_job
+#SBATCH -p node_to_run_on
+#SBATCH --exclusive
+#SBATCH -o bert_train.out
+#SBATCH --gres=gpu:8
+#SBATCH --mem=500G
+
+cd path/to/cottention_transformer
+/path/to/venv/bin/torchrun --nproc_per_node 8 --master-port 29503 BERT_Trainer/train.py
+```
+
+Make sure to replace `/path/to/cottention_transformer` with the actual path to your Cottention Transformer repository and `/path/to/venv/bin/torchrun` with the path to your Python virtual environment's `torchrun` executable.
+
+This script sets up the necessary environment variables and launches the training using `torchrun` for distributed training across multiple GPUs.
+
+Note: The provided code assumes you are using a SLURM job scheduler. If you are using a different job scheduler or running the training script directly, you may need to modify the script accordingly.
+
+### GPT
+
+To train the GPT Cottention model, complete the following:
+
+1. Create dataset with `GPT_Trainer/train.py`
 
 To run `train.py` with multiple machines, refer to the provided training script. Here's an example of how to run the training using a job scheduler (e.g., SLURM):
 
@@ -71,15 +102,19 @@ This script sets up the necessary environment variables and launches the trainin
 
 Note: The provided code assumes you are using a SLURM job scheduler. If you are using a different job scheduler or running the training script directly, you may need to modify the script accordingly.
 
-## Finetuning
+## Finetuning BERT
 
-To finetune the Cottention model, complete the following:
+To finetune the BERT Cottention model, complete the following:
 
 1. Create dataset with `BERT_Trainer/create_hf_ft_datasets.py`
 2. Tokenize dataset with `BERT_Trainer/map_hf_ft_datasets.py`
 3. Finetune with `BERT_Trainer/finetune.py`
 
 No different than with training. We have provided all relevant code for BERT. The datasets relevant for GPT will be provided upon release for anonymity.
+
+## Inference
+
+An inference playgorund can be run with pretrained models by running the `BERT_Trainer/infer.py` and replacing `model_path` with the path to the checkpoint of the model. Additionally, for softmax models, `attention_type` should be set to `soft` and for cosine, `attention_type` should be set to `cos`.
 
 # Pre-trained Models
 
@@ -90,13 +125,29 @@ You can download pretrained models here:
 
 ## Results
 
+### BERT
+
 Our model achieves the following performance on:
 
 | Model                   | MNLI-(m/mm) | QQP  | QNLI | SST-2 | CoLA | STS-B | MRPC | RTE  | Average |
 |-------------------------|-------------|------|------|-------|------|-------|------|------|---------|
-| BERT_BASE               | 84.6/83.4   | 71.2 | 90.5 | 93.5  | 52.1 | 85.8  | 88.9 | 66.4 | 79.6    |
 | BERT_softmax            | 81.8/82.5   | 86.5 | 89.9 | 90.5  | 80.5 | 78.3  | 90.0 | 67.9 | 83.1    |
 | BERT_cosine             | 80.6/81.1   | 86.2 | 89.3 | 90.1  | 77.8 | 76.5  | 88.6 | 66.4 | 81.8    |
+
+Versus published results of:
+
+| Model                   | MNLI-(m/mm) | QQP  | QNLI | SST-2 | CoLA | STS-B | MRPC | RTE  | Average |
+|-------------------------|-------------|------|------|-------|------|-------|------|------|---------|
+| BERT_BASE               | 84.6/83.4   | 71.2 | 90.5 | 93.5  | 52.1 | 85.8  | 88.9 | 66.4 | 79.6    |
+
+### GPT
+
+Our GPT models obtain PPL scores of:
+- Cosine 300M: 11.6
+- Cosine 1.2B: 9.9
+- Softmax 300M: 10.3
+- Softmax 1.2B: 9.1
+
 
 ## Contributing
 
