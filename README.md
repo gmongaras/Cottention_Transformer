@@ -114,7 +114,7 @@ No different than with training. We have provided all relevant code for BERT. Th
 
 ## Inference
 
-An inference playgorund can be run with pretrained models by running the `BERT_Trainer/infer.py` and replacing `model_path` with the path to the checkpoint of the model. Additionally, for softmax models, `attention_type` should be set to `soft` and for cosine, `attention_type` should be set to `cos`.
+An inference playground can be utilized with pretrained models by running the `BERT_Trainer/infer.py` and replacing `model_path` with the path to the checkpoint of the model. Additionally, for softmax models, `attention_type` should be set to `soft` and for cosine, `attention_type` should be set to `cos` in the files themselves.
 
 # Pre-trained Models
 
@@ -148,7 +148,6 @@ Our GPT models obtain PPL scores of:
 - Cosine 1.2B: 9.9
 - Softmax 300M: 10.3
 - Softmax 1.2B: 9.1
-
 
 ## Contributing
 
