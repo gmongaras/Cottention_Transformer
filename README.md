@@ -22,9 +22,9 @@ To install the necessary dependencies and the custom CUDA kernel, follow these s
 
 To train the Cottention model, complete the following:
 
-1. Create dataset with `create_hf_datasets.py`
-2. Pre-tokenize dataset with `map_hf_dataset.py`
-3. Train model with `train.py`
+1. Create dataset with `BERT_Trainer/create_hf_datasets.py`
+2. Pre-tokenize dataset with `BERT_Trainer/map_hf_dataset.py`
+3. Train model with `BERT_Trainer/train.py`
 
 To run `train.py` with multiple machines, refer to the provided training script. Here's an example of how to run the training using a job scheduler (e.g., SLURM):
 
@@ -75,9 +75,9 @@ Note: The provided code assumes you are using a SLURM job scheduler. If you are 
 
 To finetune the Cottention model, complete the following:
 
-1. Create dataset with `create_hf_ft_datasets.py`
-2. Tokenize dataset with `map_hf_ft_datasets.py`
-3. Finetune with `finetune.py`
+1. Create dataset with `BERT_Trainer/create_hf_ft_datasets.py`
+2. Tokenize dataset with `BERT_Trainer/map_hf_ft_datasets.py`
+3. Finetune with `BERT_Trainer/finetune.py`
 
 No different than with training. We have provided all relevant code for BERT. The datasets relevant for GPT will be provided upon release for anonymity.
 
@@ -85,7 +85,7 @@ No different than with training. We have provided all relevant code for BERT. Th
 
 You can download pretrained models here:
 
-[Cottention BERT Model](https://drive.google.com/mymodel.pth)  trained on Wikipedia and BookCorpus datasets.
+[Cottention BERT Model](https://drive.google.com/mymodel.pth) trained on Wikipedia and BookCorpus datasets.
 [Cottention GPT Model](https://drive.google.com/mymodel.pth) trained on The Pile dataset.
 
 ## Results
