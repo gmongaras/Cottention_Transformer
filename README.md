@@ -1,98 +1,103 @@
-# Cottention_Transformer
+# Cottention Transformer
 
+This repository contains the official implementation of the paper "Cottention: Linear Transformers With Cosine Attention".
 
+## Requirements
 
+To install the necessary dependencies and the custom CUDA kernel, follow these steps:
 
-# Log
-## BERT
-### Initial
-Initially, both softmax and cosine did quite bad. However, cosine would not converge at all.
+1. Install the required Python packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### Attempting to fix Cosine Attention
-Below are the attempts at trying to fix the issue of cosine attention divergence
-- Gradient clipping - Kind of stabalized training, but was terrible
-- Higher weight decay (0.1) - Did not help at all
-- Lower learning rate (1e-5) - Appeared to stabalize training
+2. Navigate to the CUDA kernel directory and install the kernel:
+   ```bash
+   cd cuda_kernel
+   python -m pip uninstall FastAttention -y
+   python setup.py install
+   ```
 
-At this point, training was tested with both softmax and cosine again, with cosine winning at 1e-5 learning rate.
+## Training
 
-### AdamW
-After "fixing" cosine attention, it was realized that Adam was used instead of AdamW. After using AdamW, softmax at 1e-5 and 1e-4 learning rate completely destroyed cosine attention.
+To train the Cottention model, complete the following:
 
-### Improving Convergence of Cosine Attentoin
-Seeing Cosine attention converge gave us hope that it could be optimized to match normal attention
-- Slaping ReLU around the "attention" matrix - In normal ReLU fashion, this worked quite well and convergence was much faster. We hypothesize this could be because the model could "throw away" tokens when doing linear combinations with the values.
-- Other activations didn't do as well, even variations of ReLU which is probably because tokens cannot be throw away.
-- Slightly higher learning rate - Learning rates of 3e-5 and 5e-5 diverged, 1e-5 seemed to be the sweet spot.
-- Token Dropout - Dropout in the attention matrix made the model slightly worse.
-- Angle dist - Since ReLU worked, why wouldn;t the angle distance work. This is basically an unsigned variant of cosine similarity. This was much worse than cosine similarity with ReLU.
+1. Create dataset with `create_hf_datasets.py`
+2. Pre-tokenize dataset with `map_hf_dataset.py`
+3. Train model with `train.py`
 
-### Stabalizing Traning At a Higher Learning Rate
-We realized to make cosine attention match that of softmax, the learning rate must be increased. Since ReLU was so good, why not have it do a little better
-- Learning ReLU - Can ReLU do better if parts of it such as the slope or cutoff are learned? Apparently not as this makes the model worse.
-- "Soft ReLU" - We noticed several of the attention maps using ReLU were dead. This is a variant on ReLU where the forward pass is normal ReLU, but backward pass is leaky ReLU, thus creating some intermediate between leaky and normal ReLU. This didn't work :(
+To run `train.py` with multiple machines, refer to the provided training script. Here's an example of how to run the training using a job scheduler (e.g., SLURM):
 
-### Measuring Magnitude
-What's the one thing attention has over the current method? The magnitude of attention is at most 1. The magnitude of cosine similarity is at most the number of tokens in the sequence. This must blow up the output values if the attention map has large values.
+```bash
+#!/bin/bash
 
-Looking at the magnitude of the cosine scores makes it obvious that this is the problem. The magnitudes continuously increase as training goes on, reaching values of above 10.
+#SBATCH --job-name=training_job
+#SBATCH -p batch
+#SBATCH --exclusive
+#SBATCH -o train.out
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:8
+#SBATCH --mem=500G
 
-### Fixing Magnitude Issues
-Fixing this issue is quite easy, just normalize the attention matrix. To do this, we can divide by the sequence length. This means the magnitude will never be greater than 1. Doing this fixes the problem. The model can now be trained at a high learning rate and this method also beats ReLU at 1e-5 learning rate.
+# No. Nodes
+nnodes=1
 
-The best part is this method has linearity:
+# No. Tasks Per Node
+nproc_per_node=8
 
-(N(Q)@N(K^T))/s @ V = N(Q)@N(K^T)) @ V/s = N(Q) @ (N(K^T) @ V/s)
+nodes=( $( scontrol show hostnames $SLURM_JOB_NODELIST ) )
+nodes_array=($nodes)
+head_node=${nodes_array[0]}
+head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 
-### Fixing Magnitude Issues 2
-The old method works well where the attention scores are divided by the sequence length, however this leads to a problem. If the cosine similarity scores of the sequence are < 1, then the outputs will slowely converge to 0 as the number of layers increases. Alternatively, if the scroes of the sequence are > 1, then the outputs will quickly diverge and go to infinity. The current situation is much better than going to infinity, however it is far from optimal.
+echo Node IP: $head_node_ip
 
-How about we take an exponential of the sequence length? So instead the sequence is divided by the square root of the sequence length. This works and the model does slightly better, however this diverges at a point, likely as the model has magnitudes > 1.
+export LOGLEVEL=INFO
 
-How about allowing the model to learn an exponential of the sequence length. In this case, the attention scoes will be divided by the sequence length to the power of a learnable constant (one for each head). This seems to work quite well, however rarely this method also dies and goes to infinity. FOrcing the model to have a value between 0 and 1 via sigmoid helps, but still runs into divergence problems.
+cd /path/to/cottention_transformer
 
-How about just normalizing the values. So the output becomes: O = N(Q) @ N(K^T) @ N(V). Maybe this will helps. It's kind of like just messing around the unit sphere though.
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 srun /path/to/venv/bin/torchrun \
+--nnodes $nnodes \
+--nproc_per_node $nproc_per_node \
+--rdzv_id $RANDOM \
+--rdzv_backend c10d \
+--rdzv_endpoint $head_node_ip:29500 \
+gpt_trainer/train.py
+```
 
-How about adding a penalty to the loss? For example we could:
-1. Penalize the output of the attention mechanism for have output tokens with high magnitude from the values. Note that instead of doing this for the input, we do this with the values. The Q and K are just going to be between -1 and 1, so that magnitude doesn't matter. The magnitude of the values on the other hand should be close to the magnitude of the output so the model doesn't blow up. This means token 0 in the values should have a magnitude close to token 0 in the output
-2. A slightly less extreme penalty is that the average magnitude of the values should be close to the average magnitude of the output.
-- In the end, penalty wouldn't covnerge at all :(
+Make sure to replace `/path/to/cottention_transformer` with the actual path to your Cottention Transformer repository and `/path/to/venv/bin/torchrun` with the path to your Python virtual environment's `torchrun` executable.
 
-What worked best?
-- Although dividing by a constant worked most of the time, it failed sometimes. Normalizing the values worked for all tests so far.
+This script sets up the necessary environment variables and launches the training using `torchrun` for distributed training across multiple GPUs.
 
+Note: The provided code assumes you are using a SLURM job scheduler. If you are using a different job scheduler or running the training script directly, you may need to modify the script accordingly.
 
-## Data Problems
-Training the above was trained on data without punctuation as the data script removed these by mistake. Adding them back results in proper data. Additionally, this data had a few problems, which were addressed to clean the data further and properly.
+## Finetuning
 
-## Fixing Stability
-With the new data, the stability becomes wacky again. The value norm method dies because the magnitude of the vectors becomes too large. The norm method worked for the other data likely because that data had much shorter sentences. However, as the sentence size grows, the magnitude of the attention row vectors increases as the max magnitude is the sequence length itself. This results in an unstable behavior, as the number of layer increases, the magnitude of the vectors increases if the attention vectors have a magnitude greater than 1, which is very likely. This magnitude issue results in unstable values and unstable and large gradients.
+To finetune the Cottention model, complete the following:
 
-To fix this, we are going back to the divide by the sequence lenght method for now. This method will obviously fix the magnitude issue in all cases, however, the model may hae issues as the scores could decrease to 0 instead of increasing to infinity, which is a much better problem. We will see how this works out. 
+1. Create dataset with `create_hf_ft_datasets.py`
+2. Tokenize dataset with `map_hf_ft_datasets.py`
+3. Finetune with `finetune.py`
 
-I am afraid that this method may result in long sequence issue. Let's say we have a sequence of length S and we increase the sequence to 2S. Let's say that the addition of S tokens doesn't add any attention scores as perhaps we addeed some trash token the model doesn't care about. Then, the attention scores are divided by two, which may cause vanishing values as layers are stacked. I am thinking that since information among tokens is sparse, as the sequence length increases, the attention scores will have issues. Just a hypothesis, not sure if this is actually a problem or not.
+No different than with training. We have provided all relevant code for BERT. The datasets relevant for GPT will be provided upon release for anonymity.
 
+# Pre-trained Models
 
+You can download pretrained models here:
 
-## GPT
+[Cottention BERT Model](https://drive.google.com/mymodel.pth)  trained on Wikipedia and BookCorpus datasets.
+[Cottention GPT Model](https://drive.google.com/mymodel.pth) trained on The Pile dataset.
 
+## Results
 
+Our model achieves the following performance on:
 
-# Tests
-## Activation Functions
-Try different activations functions on the attention matrix:
-- ReLU
-- Sigmoid
-- Softmax???
+| Model                   | MNLI-(m/mm) | QQP  | QNLI | SST-2 | CoLA | STS-B | MRPC | RTE  | Average |
+|-------------------------|-------------|------|------|-------|------|-------|------|------|---------|
+| BERT_BASE               | 84.6/83.4   | 71.2 | 90.5 | 93.5  | 52.1 | 85.8  | 88.9 | 66.4 | 79.6    |
+| BERT_softmax            | 81.8/82.5   | 86.5 | 89.9 | 90.5  | 80.5 | 78.3  | 90.0 | 67.9 | 83.1    |
+| BERT_cosine             | 80.6/81.1   | 86.2 | 89.3 | 90.1  | 77.8 | 76.5  | 88.6 | 66.4 | 81.8    |
 
+## Contributing
 
-## Similarity Scoring
-Try different similarity measures to obtain the attention matrix:
-- Cosine similarity - cosFormer/cottention
-- Euclidean distance - Euclidformer
-- Manhattan distance - ManFormer?
-
-
-## Learnable Similarity?
-What if we have the model learn the similarity function?
-- Ex: learnable Chebyshev p value.
+We welcome contributions to the Cottention Transformer repository. If you encounter any issues or have suggestions for improvements, please open an issue or submit a pull request. Make sure to follow the established coding style and guidelines.
