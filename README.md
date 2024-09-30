@@ -2,6 +2,8 @@
 
 This repository contains the official implementation of the paper "Cottention: Linear Transformers With Cosine Attention".
 
+Paper found here: https://arxiv.org/abs/2409.18747
+
 ## Requirements
 
 To install the necessary dependencies and the custom CUDA kernel, follow these steps:
