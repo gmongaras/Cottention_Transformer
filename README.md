@@ -122,9 +122,11 @@ An inference playground can be utilized with pretrained models by running the `B
 
 You can download pretrained models here:
 
-[Cottention BERT Model](https://drive.google.com/drive/folders/1j14EAKHLT5edz99YmXhpaafKSYXG8bbJ?usp=drive_link) trained on Wikipedia and BookCorpus datasets.
+[Huggingface models](https://huggingface.co/collections/gmongaras/cosine-attention-cottention-6703e482a3f9131cd2d6ee89) with all models.
 
-[Cottention GPT Model](https://drive.google.com/drive/folders/1Z9lHwcCMtLUgLQnkTyT6oYWIMMXZ8TiI?usp=drive_link) trained on The Pile dataset.
+[Google Drive Cottention BERT Model](https://drive.google.com/drive/folders/1j14EAKHLT5edz99YmXhpaafKSYXG8bbJ?usp=drive_link) trained on Wikipedia and BookCorpus datasets.
+
+[Google Drive Cottention GPT Model](https://drive.google.com/drive/folders/1Z9lHwcCMtLUgLQnkTyT6oYWIMMXZ8TiI?usp=drive_link) trained on The Pile dataset.
 
 ## Results
 
