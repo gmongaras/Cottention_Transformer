@@ -130,6 +130,10 @@ You can download pretrained models here:
 
 ## Results
 
+Wandb BERT: https://wandb.ai/gmongaras1/Cos_BERT/overview
+
+Wandb GPT: https://wandb.ai/gmongaras1/Cos_GPT/overview
+
 ### BERT
 
 Our model achieves the following performance on:
