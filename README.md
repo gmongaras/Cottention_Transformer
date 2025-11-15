@@ -4,6 +4,8 @@ This repository contains the official implementation of the paper "Cottention: L
 
 Paper found here: https://arxiv.org/abs/2409.18747
 
+Published in Springer Nature link.springer.com/book/10.1007/978-3-031-92602-0
+
 ## Requirements
 
 To install the necessary dependencies and the custom CUDA kernel, follow these steps:
