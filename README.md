@@ -2,9 +2,9 @@
 
 This repository contains the official implementation of the paper "Cottention: Linear Transformers With Cosine Attention".
 
-Paper found here: https://arxiv.org/abs/2409.18747
+Paper found here: [https://arxiv.org/abs/2409.18747](https://arxiv.org/abs/2409.18747)
 
-Published in Springer Nature link.springer.com/book/10.1007/978-3-031-92602-0
+Published in Springer Nature [https://link.springer.com/book/10.1007/978-3-031-92602-0](link.springer.com/book/10.1007/978-3-031-92602-0)
 
 ## Requirements
 
